@@ -80,9 +80,29 @@
         <div id="a-preview" class="tex-preview">$$\text{type above}$$</div>
       </div>
 
+      <label class="span-2">
+        Question graph — Desmos URL (optional)
+        <input type="url" id="q-graph" name="graph_url"
+          placeholder="https://www.desmos.com/calculator/..."
+          oninput="updateGraphPreview('q-graph','q-graph-frame','q-graph-wrap')">
+      </label>
+      <div class="span-2 graph-preview-wrap" id="q-graph-wrap" style="display:none">
+        <iframe id="q-graph-frame" src="" class="graph-embed-frame" allowfullscreen></iframe>
+      </div>
+
+      <label class="span-2">
+        Answer graph — Desmos URL (optional)
+        <input type="url" id="a-graph" name="answer_graph_url"
+          placeholder="https://www.desmos.com/calculator/..."
+          oninput="updateGraphPreview('a-graph','a-graph-frame','a-graph-wrap')">
+      </label>
+      <div class="span-2 graph-preview-wrap" id="a-graph-wrap" style="display:none">
+        <iframe id="a-graph-frame" src="" class="graph-embed-frame" allowfullscreen></iframe>
+      </div>
+
       <div class="span-2 modal-actions">
         <button type="button" onclick="closeAddModal()">Cancel</button>
-        <button type="submit" class="btn primary">Post question (+20 credits)</button>
+        <button type="submit" class="btn primary">Post question (+5 credits)</button>
       </div>
     </form>
   </div>
@@ -110,6 +130,21 @@
   function openAddModal(){
     document.getElementById('addModal').style.display='flex';
     updateTopics();
+  }
+
+  if (new URLSearchParams(location.search).get('add') === '1') openAddModal();
+
+  function updateGraphPreview(inputId, frameId, wrapId){
+    const url = document.getElementById(inputId).value.trim();
+    const wrap = document.getElementById(wrapId);
+    if (url.startsWith('https://www.desmos.com/calculator/')) {
+      const clean = url.split('?')[0];
+      document.getElementById(frameId).src = clean + '?embed';
+      wrap.style.display = 'block';
+    } else {
+      wrap.style.display = 'none';
+      document.getElementById(frameId).src = '';
+    }
   }
   function closeAddModal(){ document.getElementById('addModal').style.display='none'; }
 

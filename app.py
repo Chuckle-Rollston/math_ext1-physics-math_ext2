@@ -111,6 +111,8 @@ class Question(db.Model):
     latex = db.Column(db.Text, nullable=False)
     answer_latex = db.Column(db.Text, nullable=False)
     difficulty = db.Column(db.Integer, nullable=False)  # 1-10
+    graph_url = db.Column(db.String(300), nullable=True)
+    answer_graph_url = db.Column(db.String(300), nullable=True)
     completion_count = db.Column(db.Integer, default=0, nullable=False)
     credits_awarded_buckets = db.Column(db.Integer, default=0, nullable=False)  # per-10 bonus payouts
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -239,6 +241,13 @@ def logout():
     return redirect(url_for("index"))
 
 
+def _clean_desmos_url(raw):
+    url = (raw or "").strip()
+    if url.startswith("https://www.desmos.com/calculator/"):
+        return url.split("?")[0]  # strip any existing query params
+    return None
+
+
 @app.route("/add", methods=["POST"])
 @login_required
 def add_question():
@@ -247,6 +256,8 @@ def add_question():
     topic = request.form.get("topic", "").strip()
     latex = request.form.get("latex", "").strip()
     answer_latex = request.form.get("answer_latex", "").strip()
+    graph_url = _clean_desmos_url(request.form.get("graph_url", ""))
+    answer_graph_url = _clean_desmos_url(request.form.get("answer_graph_url", ""))
     try:
         difficulty = int(request.form.get("difficulty", "5"))
     except ValueError:
@@ -267,11 +278,13 @@ def add_question():
         latex=latex,
         answer_latex=answer_latex,
         difficulty=difficulty,
+        graph_url=graph_url,
+        answer_graph_url=answer_graph_url,
     )
-    user.credits += 20
+    user.credits += 5
     db.session.add(q)
     db.session.commit()
-    flash("Question added. +20 credits.", "ok")
+    flash("Question added. +5 credits.", "ok")
     return redirect(url_for("index", subject=subject))
 
 
@@ -302,8 +315,7 @@ def view_question(qid):
 
         cost = 1 if rated_int is not None else 2
         if user.credits < cost:
-            flash(f"Not enough credits (need {cost}).", "error")
-            return redirect(url_for("view_question", qid=q.id))
+            return redirect(url_for("view_question", qid=q.id, no_credits=1))
 
         user.credits -= cost
         comp = Completion(
@@ -327,7 +339,8 @@ def view_question(qid):
 
         db.session.add(comp)
         db.session.commit()
-        flash(f"Completed. -{cost} credits.", "ok")
+        msg = "Completed. +1 credit for rating!" if rated_int is not None else "Completed."
+        flash(msg, "ok")
         return redirect(url_for("view_question", qid=q.id))
 
     return render_template("question.html", q=q, existing=existing)
@@ -445,12 +458,17 @@ def init_db():
 
 with app.app_context():
     db.create_all()
-    # Lightweight migration: add `topic` column if an older DB is missing it.
     insp = inspect(db.engine)
     if "question" in insp.get_table_names():
         cols = {c["name"] for c in insp.get_columns("question")}
         if "topic" not in cols:
             db.session.execute(text("ALTER TABLE question ADD COLUMN topic VARCHAR(80)"))
+            db.session.commit()
+        if "graph_url" not in cols:
+            db.session.execute(text("ALTER TABLE question ADD COLUMN graph_url VARCHAR(300)"))
+            db.session.commit()
+        if "answer_graph_url" not in cols:
+            db.session.execute(text("ALTER TABLE question ADD COLUMN answer_graph_url VARCHAR(300)"))
             db.session.commit()
 
 

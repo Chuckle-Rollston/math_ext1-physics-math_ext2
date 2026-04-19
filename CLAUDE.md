@@ -43,7 +43,7 @@ test leaves a process bound to the port, free it with
 ## Credit rules (single source of truth — keep in sync with `/credits` page)
 
 - Signup: +10.
-- Add a question: +20.
+- Add a question: +5.
 - Complete a question: −2, or −1 if the user also rates difficulty.
 - Every 10 completions on your question: +6 to the author.
 - Challenge resolved as `original_wrong`: −1 from author, +1 to challenger;

@@ -16,16 +16,25 @@
   <section class="panel">
     <h2>Question</h2>
     <div class="tex-preview big">$${{ q.latex|safe }}$$</div>
+    {% if q.graph_url %}
+    <div class="graph-embed">
+      <iframe src="{{ q.graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
+    </div>
+    {% endif %}
   </section>
 
   {% if existing %}
     <section class="panel">
       <h2>You completed this</h2>
-      <p>Credits charged: <b>{{ existing.credits_charged }}</b>
-        {% if existing.rated_difficulty %}(rated {{ existing.rated_difficulty }}/10){% endif %}.</p>
+      <p>{% if existing.rated_difficulty %}You rated this <b>{{ existing.rated_difficulty }}/10</b> — nice work.{% else %}You didn't rate the difficulty this time.{% endif %}</p>
       <details>
         <summary>Show official answer</summary>
         <div class="tex-preview big">$${{ q.answer_latex|safe }}$$</div>
+        {% if q.answer_graph_url %}
+        <div class="graph-embed">
+          <iframe src="{{ q.answer_graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
+        </div>
+        {% endif %}
       </details>
       {% if existing.submitted_answer %}
       <details>
@@ -62,18 +71,32 @@
       <details>
         <summary>Show official answer</summary>
         <div class="tex-preview big">$${{ q.answer_latex|safe }}$$</div>
+        {% if q.answer_graph_url %}
+        <div class="graph-embed">
+          <iframe src="{{ q.answer_graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
+        </div>
+        {% endif %}
       </details>
     </section>
 
   {% else %}
     <section class="panel">
       <h2>Submit your answer</h2>
-      <p class="muted">
-        Completing a question costs <b>2 credits</b>, or <b>1 credit</b> if you rate the difficulty.
-        You currently have <b>{{ current_user.credits }}</b> credits.
-      </p>
+      <p class="muted">Rate the difficulty and earn <b>+1 credit</b> back.</p>
 
       <form method="post" class="form-grid">
+        <label>
+          Rate difficulty 1–10 <span class="credit-hint">(+1 credit)</span>
+          <input type="number" name="rated_difficulty" min="1" max="10" placeholder="optional">
+        </label>
+        <label>
+          Self-check: was your answer correct?
+          <select name="was_correct">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+
         <label class="span-2">
           Your answer (LaTeX)
           <textarea id="ans-latex" name="submitted_answer" rows="3"
@@ -84,18 +107,6 @@
           <div id="ans-preview" class="tex-preview">$$\text{type above}$$</div>
         </div>
 
-        <label>
-          Self-check: was your answer correct?
-          <select name="was_correct">
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
-        </label>
-        <label>
-          Rate difficulty 1–10 (optional, costs only 1 credit)
-          <input type="number" name="rated_difficulty" min="1" max="10" placeholder="leave blank for 2-cr cost">
-        </label>
-
         <div class="span-2 modal-actions">
           <button type="submit" class="btn primary">Submit & reveal answer</button>
         </div>
@@ -104,6 +115,21 @@
   {% endif %}
 </div>
 {% endblock %}
+
+{% if request.args.get('no_credits') %}
+<div id="noCreditsModal" class="modal-backdrop" style="display:flex">
+  <div class="modal" style="max-width:420px;text-align:center">
+    <div class="modal-head" style="justify-content:center">
+      <h2>Out of credits</h2>
+    </div>
+    <p style="margin:16px 0">You are out of credits.<br>Create a question to earn more.</p>
+    <div class="modal-actions" style="justify-content:center">
+      <a href="{{ url_for('index', add=1) }}" class="btn primary">+ Create a question</a>
+      <button onclick="document.getElementById('noCreditsModal').style.display='none'">Dismiss</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% block scripts %}
 <script>
