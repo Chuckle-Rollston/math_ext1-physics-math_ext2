@@ -1,6 +1,7 @@
 import os
 import random
 import secrets
+import uuid
 from collections import Counter
 from functools import wraps
 from datetime import datetime
@@ -80,6 +81,10 @@ def _database_uri() -> str:
     return "sqlite:///" + os.path.join(BASE_DIR, "app.db")
 
 
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
+ALLOWED_IMAGE_EXTS = {"png", "jpg", "jpeg", "gif", "webp"}
+MAX_IMAGE_BYTES = 150 * 1024  # 150 KB
+
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 app.config["SQLALCHEMY_DATABASE_URI"] = _database_uri()
@@ -117,6 +122,7 @@ class Question(db.Model):
     marking_guidelines = db.Column(db.Text, nullable=True)
     graph_url = db.Column(db.String(300), nullable=True)
     answer_graph_url = db.Column(db.String(300), nullable=True)
+    image_filename = db.Column(db.String(100), nullable=True)
     completion_count = db.Column(db.Integer, default=0, nullable=False)
     credits_awarded_buckets = db.Column(db.Integer, default=0, nullable=False)  # per-10 bonus payouts
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -352,6 +358,25 @@ def add_question():
     if topic and topic not in TOPICS.get(subject, []):
         flash("Topic doesn't match subject.", "error")
         return redirect(url_for("index"))
+    if not request.form.get("agree_tos"):
+        flash("You must agree to the Terms of Service to post a question.", "error")
+        return redirect(url_for("index"))
+
+    image_filename = None
+    img = request.files.get("image")
+    if img and img.filename:
+        ext = img.filename.rsplit(".", 1)[-1].lower() if "." in img.filename else ""
+        if ext not in ALLOWED_IMAGE_EXTS:
+            flash("Image must be PNG, JPG, GIF, or WEBP.", "error")
+            return redirect(url_for("index"))
+        img_data = img.read()
+        if len(img_data) > MAX_IMAGE_BYTES:
+            flash("Image must be under 150 KB.", "error")
+            return redirect(url_for("index"))
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+        image_filename = str(uuid.uuid4()) + "." + ext
+        with open(os.path.join(UPLOAD_FOLDER, image_filename), "wb") as f:
+            f.write(img_data)
 
     q = Question(
         author_id=user.id,
@@ -364,6 +389,7 @@ def add_question():
         marking_guidelines=marking_guidelines,
         graph_url=graph_url,
         answer_graph_url=answer_graph_url,
+        image_filename=image_filename,
     )
     user.credits += 5
     db.session.add(q)
@@ -774,6 +800,7 @@ with app.app_context():
             ("answer_graph_url",    "ALTER TABLE question ADD COLUMN answer_graph_url VARCHAR(300)"),
             ("marks",               "ALTER TABLE question ADD COLUMN marks INTEGER"),
             ("marking_guidelines",  "ALTER TABLE question ADD COLUMN marking_guidelines TEXT"),
+            ("image_filename",      "ALTER TABLE question ADD COLUMN image_filename VARCHAR(100)"),
         ]:
             if col not in cols:
                 db.session.execute(text(ddl))
@@ -783,6 +810,16 @@ with app.app_context():
         if "quality_rating" not in ccols:
             db.session.execute(text("ALTER TABLE completion ADD COLUMN quality_rating INTEGER"))
             db.session.commit()
+
+
+@app.route("/terms")
+def tos():
+    return render_template("tos.html")
+
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html")
 
 
 if __name__ == "__main__":

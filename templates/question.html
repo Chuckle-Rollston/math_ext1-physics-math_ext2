@@ -28,6 +28,11 @@
   <section class="panel">
     <h2>Question</h2>
     <div class="tex-preview big">$${{ q.latex|safe }}$$</div>
+    {% if q.image_filename %}
+    <div class="q-image-wrap">
+      <img src="{{ url_for('static', filename='uploads/' ~ q.image_filename) }}" alt="Question diagram" class="q-image">
+    </div>
+    {% endif %}
     {% if q.graph_url %}
     <div class="graph-embed">
       <iframe src="{{ q.graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
