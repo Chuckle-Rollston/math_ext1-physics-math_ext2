@@ -278,10 +278,18 @@ def index():
         rows = Completion.query.with_entities(Completion.question_id).filter_by(user_id=user.id).all()
         done_ids = {r[0] for r in rows}
 
+    # Community average difficulty per question (single query)
+    qids = [q.id for q in questions]
+    avg_rows = (db.session.query(Completion.question_id, func.avg(Completion.rated_difficulty))
+                .filter(Completion.question_id.in_(qids), Completion.rated_difficulty.isnot(None))
+                .group_by(Completion.question_id).all())
+    avg_difficulties = {qid: round(avg, 1) for qid, avg in avg_rows if avg is not None}
+
     return render_template("index.html",
                            questions=questions,
                            active_subject=subject,
-                           done_ids=done_ids)
+                           done_ids=done_ids,
+                           avg_difficulties=avg_difficulties)
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -466,7 +474,13 @@ def view_question(qid):
         return redirect(url_for("view_question", qid=q.id))
 
     study_mode = request.args.get("study") == "1"
-    return render_template("question.html", q=q, existing=existing, study_mode=study_mode)
+    avg_diff_row = (db.session.query(func.avg(Completion.rated_difficulty))
+                   .filter(Completion.question_id == q.id,
+                           Completion.rated_difficulty.isnot(None))
+                   .scalar())
+    avg_difficulty = round(avg_diff_row, 1) if avg_diff_row is not None else None
+    return render_template("question.html", q=q, existing=existing,
+                           study_mode=study_mode, avg_difficulty=avg_difficulty)
 
 
 @app.route("/question/<int:qid>/update-ratings", methods=["POST"])

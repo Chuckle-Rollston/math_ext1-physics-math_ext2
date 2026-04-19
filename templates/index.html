@@ -24,7 +24,7 @@
     <div class="card-meta">
       <span class="tag subject-{{ q.subject }}">{{ SUBJECT_LABELS[q.subject] }}</span>
       {% if q.topic %}<span class="tag">{{ q.topic }}</span>{% endif %}
-      <span class="tag">Difficulty {{ q.difficulty }}/10</span>
+      <span class="tag">Difficulty {{ avg_difficulties[q.id] if q.id in avg_difficulties else q.difficulty }}/10</span>
       <span class="tag">Completions: {{ q.completion_count }}</span>
       {% if q.image_filename %}<span class="tag tag-img">⬛ image</span>{% endif %}
       {% if q.id in done_ids %}<span class="tag tag-done">✓ done</span>{% endif %}

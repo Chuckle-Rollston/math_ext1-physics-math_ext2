@@ -19,7 +19,7 @@
   <div class="card-meta">
     <span class="tag subject-{{ q.subject }}">{{ SUBJECT_LABELS[q.subject] }}</span>
     {% if q.topic %}<span class="tag">{{ q.topic }}</span>{% endif %}
-    <span class="tag">Difficulty {{ q.difficulty }}/10</span>
+    <span class="tag">Difficulty {{ avg_difficulty if avg_difficulty is not none else q.difficulty }}/10</span>
     {% if q.marks %}<span class="tag">{{ q.marks }} mark{{ 's' if q.marks != 1 }}</span>{% endif %}
     <span class="tag">Completions: {{ q.completion_count }}</span>
     <span class="muted">by {{ q.author.username }}</span>
