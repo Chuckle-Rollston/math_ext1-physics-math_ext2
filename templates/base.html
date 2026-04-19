@@ -4,15 +4,19 @@
   <meta charset="utf-8">
   <title>{% block title %}QBank{% endblock %}</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script>
     window.MathJax = {
       tex: { inlineMath: [['$', '$'], ['\\(', '\\)']],
              displayMath: [['$$', '$$'], ['\\[', '\\]']] },
-      svg: { fontCache: 'global' }
+      chtml: { fontCache: 'global' },
+      startup: { typeset: false }
     };
   </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    onload="MathJax.startup.promise.then(()=>MathJax.typesetPromise())"></script>
 </head>
 <body>
   <header class="topbar">
@@ -67,5 +71,29 @@
   </footer>
 
   {% block scripts %}{% endblock %}
+
+  <!-- Prefetch pages on hover so they're ready before the click -->
+  <script src="https://cdn.jsdelivr.net/npm/instant.page@5.2.0/instantpage.js" type="module" defer></script>
+
+  <!-- Thin progress bar for immediate visual feedback on navigation -->
+  <script src="https://cdn.jsdelivr.net/npm/nprogress@0.2.0/nprogress.min.js" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (typeof NProgress === 'undefined') return;
+      NProgress.configure({ showSpinner: false, trickleSpeed: 60, minimum: 0.15 });
+      document.addEventListener('click', function (e) {
+        const a = e.target.closest('a[href]');
+        if (!a) return;
+        const href = a.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript') ||
+            href.startsWith('mailto') || a.target === '_blank') return;
+        // Skip form-trigger buttons and modal openers
+        if (a.getAttribute('onclick')) return;
+        NProgress.start();
+      });
+      // Finish bar once the new page paints
+      window.addEventListener('pageshow', () => NProgress.done());
+    });
+  </script>
 </body>
 </html>
