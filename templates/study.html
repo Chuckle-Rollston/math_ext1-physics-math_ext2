@@ -65,6 +65,29 @@
       </div>
     </div>
 
+    <!-- Quality range -->
+    <div class="study-section">
+      <h2>Question quality</h2>
+      <p class="muted" style="margin:0 0 12px;font-size:.85em">Only include questions whose average community quality rating falls in this range. Unrated questions are always included.</p>
+      <div class="dual-range-wrap">
+        <div class="dual-range" id="qual-range">
+          <div class="dual-range-track">
+            <div class="dual-range-fill" id="qr-fill"></div>
+          </div>
+          <input type="range" class="dual-range-input" id="qr-min" name="qual_min"
+            min="1" max="10" step="1" value="{{ prefs.get('qual_min', 1) }}">
+          <input type="range" class="dual-range-input" id="qr-max" name="qual_max"
+            min="1" max="10" step="1" value="{{ prefs.get('qual_max', 10) }}">
+        </div>
+        <div class="dual-range-readout">
+          Quality <b id="qr-min-val">{{ prefs.get('qual_min', 1) }}</b>
+          &nbsp;–&nbsp;
+          <b id="qr-max-val">{{ prefs.get('qual_max', 10) }}</b>
+          &nbsp; out of 10
+        </div>
+      </div>
+    </div>
+
     <button type="submit" class="btn primary" style="margin-top:8px;padding:12px 28px;font-size:16px">
       Start studying →
     </button>
@@ -98,6 +121,29 @@
   drMin.addEventListener('input', updateRange);
   drMax.addEventListener('input', updateRange);
   updateRange();
+
+  // ── Quality dual range slider ──────────────────────────────────────────
+  const qrMin = document.getElementById('qr-min');
+  const qrMax = document.getElementById('qr-max');
+  const qrFill = document.getElementById('qr-fill');
+  const qrMinVal = document.getElementById('qr-min-val');
+  const qrMaxVal = document.getElementById('qr-max-val');
+
+  function updateQualRange() {
+    let lo = parseInt(qrMin.value), hi = parseInt(qrMax.value);
+    if (lo > hi) {
+      if (document.activeElement === qrMin) qrMin.value = lo = hi;
+      else qrMax.value = hi = lo;
+    }
+    qrFill.style.left  = pct(lo) + '%';
+    qrFill.style.width = (pct(hi) - pct(lo)) + '%';
+    qrMinVal.textContent = lo;
+    qrMaxVal.textContent = hi;
+  }
+
+  qrMin.addEventListener('input', updateQualRange);
+  qrMax.addEventListener('input', updateQualRange);
+  updateQualRange();
 
   // ── Topic visibility synced with subject checkboxes ────────────────────
   const SUBJECTS = {{ SUBJECTS|tojson }};

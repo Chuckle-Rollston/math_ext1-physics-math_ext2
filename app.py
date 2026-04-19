@@ -10,7 +10,7 @@ from flask import (
     session, flash, jsonify, abort
 )
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import inspect, text
+from sqlalchemy import func, inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 SUBJECTS = ["math_ext1", "math_ext2", "math_adv", "physics"]
@@ -679,8 +679,16 @@ def study():
             diff_min, diff_max = 1, 10
         if diff_min > diff_max:
             diff_min, diff_max = diff_max, diff_min
+        try:
+            qual_min = max(1, min(10, int(request.form.get("qual_min", 1))))
+            qual_max = max(1, min(10, int(request.form.get("qual_max", 10))))
+        except ValueError:
+            qual_min, qual_max = 1, 10
+        if qual_min > qual_max:
+            qual_min, qual_max = qual_max, qual_min
         session["study_prefs"] = dict(subjects=subjects, topics=topics,
-                                      diff_min=diff_min, diff_max=diff_max)
+                                      diff_min=diff_min, diff_max=diff_max,
+                                      qual_min=qual_min, qual_max=qual_max)
         return redirect(url_for("study_next"))
     prefs = session.get("study_prefs", {})
     return render_template("study.html", prefs=prefs)
@@ -698,6 +706,8 @@ def study_next():
     topics = prefs.get("topics") or []
     diff_min = prefs.get("diff_min", 1)
     diff_max = prefs.get("diff_max", 10)
+    qual_min = prefs.get("qual_min", 1)
+    qual_max = prefs.get("qual_max", 10)
 
     q = Question.query.filter(
         Question.subject.in_(subjects),
@@ -712,6 +722,21 @@ def study_next():
     if not all_matching:
         flash("No questions match your study filters — try widening them.", "warn")
         return redirect(url_for("study"))
+
+    # Filter by average quality rating; questions with no ratings always pass
+    if qual_min != 1 or qual_max != 10:
+        qual_avgs = dict(
+            db.session.query(Completion.question_id, func.avg(Completion.quality_rating))
+            .filter(Completion.quality_rating.isnot(None))
+            .group_by(Completion.question_id)
+            .all()
+        )
+        quality_filtered = [
+            x for x in all_matching
+            if x.id not in qual_avgs or qual_min <= qual_avgs[x.id] <= qual_max
+        ]
+        if quality_filtered:
+            all_matching = quality_filtered
 
     done_ids = {c.question_id for c in Completion.query.filter_by(user_id=user.id).all()}
     undone = [x for x in all_matching if x.id not in done_ids]
