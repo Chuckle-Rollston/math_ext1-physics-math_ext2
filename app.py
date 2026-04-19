@@ -442,6 +442,32 @@ def view_question(qid):
     return render_template("question.html", q=q, existing=existing, study_mode=study_mode)
 
 
+@app.route("/question/<int:qid>/update-ratings", methods=["POST"])
+@login_required
+def update_ratings(qid):
+    user = current_user()
+    comp = Completion.query.filter_by(user_id=user.id, question_id=qid).first()
+    if not comp:
+        abort(404)
+    rated_diff = request.form.get("rated_difficulty")
+    quality = request.form.get("quality_rating")
+    if rated_diff:
+        new_diff = int(rated_diff)
+        if comp.rated_difficulty is None and comp.credits_charged == 2:
+            user.credits += 1
+            comp.credits_charged = 1
+        comp.rated_difficulty = new_diff
+    if quality:
+        comp.quality_rating = int(quality)
+    db.session.commit()
+    flash("Ratings updated.", "ok")
+    study = request.form.get("study") == "1"
+    kwargs = {"qid": qid}
+    if study:
+        kwargs["study"] = 1
+    return redirect(url_for("view_question", **kwargs))
+
+
 @app.route("/question/<int:qid>/challenge", methods=["POST"])
 @login_required
 def submit_challenge(qid):
@@ -467,8 +493,11 @@ def submit_challenge(qid):
     )
     db.session.add(ch)
     db.session.commit()
-    flash("Challenge submitted. The question's author will resolve it.", "ok")
-    return redirect(url_for("view_question", qid=q.id))
+    study = request.form.get("study") == "1"
+    kwargs = {"qid": q.id, "challenged": 1}
+    if study:
+        kwargs["study"] = 1
+    return redirect(url_for("view_question", **kwargs))
 
 
 @app.route("/challenges")

@@ -55,9 +55,13 @@
         Topic
         <select id="q-topic" name="topic" required></select>
       </label>
-      <label>
-        Perceived difficulty (1–10)
-        <input type="number" name="difficulty" min="1" max="10" value="5" required>
+      <label class="span-2">
+        Perceived difficulty — <b id="diff-add-val">5</b>/10
+        <div class="single-range" style="margin-top:6px">
+          <input type="range" name="difficulty" min="1" max="10" step="1" value="5" required
+            oninput="document.getElementById('diff-add-val').textContent = this.value">
+          <div class="range-tick-row"><span>1 easy</span><span>5</span><span>10 hard</span></div>
+        </div>
       </label>
       <label>
         Marks (optional)

@@ -38,14 +38,38 @@
   {% if existing %}
     <section class="panel">
       <h2>You completed this</h2>
-      <div class="completion-ratings">
-        {% if existing.rated_difficulty %}
-          <span class="tag">Difficulty rated {{ existing.rated_difficulty }}/10</span>
-        {% endif %}
-        {% if existing.quality_rating %}
-          <span class="tag">Question quality {{ existing.quality_rating }}/10</span>
-        {% endif %}
-      </div>
+      <form method="post" action="{{ url_for('update_ratings', qid=q.id) }}" class="form-grid" style="margin-bottom:16px">
+        {% if study_mode %}<input type="hidden" name="study" value="1">{% endif %}
+
+        <div class="span-2">
+          <div class="slider-label">
+            Difficulty rating — <span id="edit-diff-val" class="slider-val">{{ existing.rated_difficulty ~ '/10' if existing.rated_difficulty else 'not rated' }}</span>
+          </div>
+          <div class="single-range">
+            <input type="range" id="edit-diff-slider" name="rated_difficulty"
+              min="1" max="10" step="1" value="{{ existing.rated_difficulty or 5 }}"
+              oninput="document.getElementById('edit-diff-val').textContent = this.value + '/10'; editDiffTouched = true;">
+            <div class="range-tick-row"><span>1</span><span>5</span><span>10</span></div>
+          </div>
+        </div>
+
+        <div class="span-2">
+          <div class="slider-label">
+            Question quality — <span id="edit-qual-val" class="slider-val">{{ (existing.quality_rating ~ '/10') if existing.quality_rating else '5/10' }}</span>
+            <span class="muted" style="font-size:.85em">(wording, length, composition)</span>
+          </div>
+          <div class="single-range">
+            <input type="range" id="edit-qual-slider" name="quality_rating"
+              min="1" max="10" step="1" value="{{ existing.quality_rating or 5 }}"
+              oninput="document.getElementById('edit-qual-val').textContent = this.value + '/10'">
+            <div class="range-tick-row"><span>1 poor</span><span>5</span><span>10 excellent</span></div>
+          </div>
+        </div>
+
+        <div class="span-2">
+          <button type="submit" class="btn small">Save ratings</button>
+        </div>
+      </form>
 
       <details {% if study_mode %}open{% endif %}>
         <summary>Show official answer</summary>
@@ -78,25 +102,53 @@
       {% endif %}
 
       <hr>
-      <h3>Think the official answer is wrong?</h3>
-      <form method="post" action="{{ url_for('submit_challenge', qid=q.id) }}" class="form-grid">
-        <label class="span-2">
-          Your proposed answer (LaTeX)
-          <textarea id="ch-latex" name="proposed_answer_latex" rows="3" required
-            oninput="renderPreview('ch-latex','ch-preview')"></textarea>
-        </label>
-        <div class="span-2 preview-box">
-          <div class="muted">Preview</div>
-          <div id="ch-preview" class="tex-preview">$$\text{type above}$$</div>
+
+      {% if request.args.get('challenged') %}
+        <p class="muted" style="margin:0 0 16px">Challenge submitted — the question's author will review it.</p>
+        {% if study_mode %}
+          <a href="{{ url_for('study_next') }}" class="btn primary">Next question →</a>
+        {% else %}
+          <a href="{{ url_for('index', subject=q.subject) }}" class="btn primary">Back to questions →</a>
+        {% endif %}
+      {% else %}
+        <div class="challenge-toggle-row" style="margin-bottom:16px">
+          <h3>Think the official answer is wrong?</h3>
+          <label class="apple-toggle">
+            <input type="checkbox" id="challenge-toggle" onchange="toggleChallenge(this.checked)">
+            <span class="apple-toggle-track"></span>
+          </label>
         </div>
-        <label class="span-2">
-          Note (optional)
-          <textarea name="note" rows="2" placeholder="Why do you think the original is wrong?"></textarea>
-        </label>
-        <div class="span-2 modal-actions">
-          <button type="submit" class="btn primary">Submit challenge</button>
+
+        <div id="challenge-form-wrap" style="display:none">
+          <form method="post" action="{{ url_for('submit_challenge', qid=q.id) }}" class="form-grid">
+            {% if study_mode %}<input type="hidden" name="study" value="1">{% endif %}
+            <label class="span-2">
+              Your proposed answer (LaTeX)
+              <textarea id="ch-latex" name="proposed_answer_latex" rows="3" required
+                oninput="renderPreview('ch-latex','ch-preview')"></textarea>
+            </label>
+            <div class="span-2 preview-box">
+              <div class="muted">Preview</div>
+              <div id="ch-preview" class="tex-preview">$$\text{type above}$$</div>
+            </div>
+            <label class="span-2">
+              Note (optional)
+              <textarea name="note" rows="2" placeholder="Why do you think the original is wrong?"></textarea>
+            </label>
+            <div class="span-2 modal-actions">
+              <button type="submit" class="btn primary">Submit challenge</button>
+            </div>
+          </form>
         </div>
-      </form>
+
+        <div id="challenge-continue">
+          {% if study_mode %}
+            <a href="{{ url_for('study_next') }}" class="btn">Continue to next question →</a>
+          {% else %}
+            <a href="{{ url_for('index', subject=q.subject) }}" class="btn">Back to questions →</a>
+          {% endif %}
+        </div>
+      {% endif %}
     </section>
 
   {% elif current_user and current_user.id == q.author_id %}
@@ -124,26 +176,21 @@
       <h2>Submit your answer</h2>
       <p class="muted">Rate the difficulty and earn <b>+1 credit</b> back.</p>
 
-      <form method="post" class="form-grid">
+      <form method="post" class="form-grid" onsubmit="prepareSubmit()">
         {% if study_mode %}<input type="hidden" name="study" value="1">{% endif %}
 
         <!-- Difficulty rating -->
         <div class="span-2">
           <div class="slider-label">
-            Difficulty rating <span class="credit-hint">(+1 credit)</span>
+            Difficulty rating <span class="credit-hint">(+1 credit — slide to rate)</span>
             — <span id="diff-val" class="slider-val">not rated</span>
           </div>
           <div class="single-range">
-            <input type="range" id="diff-slider" name="rated_difficulty"
-              min="1" max="10" step="1"
-              oninput="document.getElementById('diff-val').textContent = this.value + '/10'"
-              style="--val:50%">
+            <input type="range" id="diff-slider"
+              min="1" max="10" step="1" value="5"
+              oninput="onDiffSliderInput()">
             <div class="range-tick-row"><span>1</span><span>5</span><span>10</span></div>
           </div>
-          <label class="slider-clear-row">
-            <input type="checkbox" id="diff-clear" onchange="clearSlider('diff-slider','diff-val','not rated')">
-            Don't rate difficulty (costs 2 credits instead of 1)
-          </label>
         </div>
 
         <!-- Question quality rating -->
@@ -169,11 +216,16 @@
         </label>
         <div></div><!-- spacer -->
 
-        <label class="span-2">
-          Your answer (LaTeX)
-          <textarea id="ans-latex" name="submitted_answer" rows="3"
-            oninput="renderPreview('ans-latex','ans-preview')"></textarea>
-        </label>
+        <div class="span-2">
+          <div class="working-out-header">
+            <span style="font-weight:600">Working out (LaTeX)</span>
+            <span class="muted" style="font-size:13px">Each step is a separate line</span>
+          </div>
+          <div id="working-lines"></div>
+          <button type="button" class="btn-add-line" onclick="addLine()">+ Add step</button>
+          <input type="hidden" name="submitted_answer" id="submitted_answer_hidden">
+        </div>
+
         <div class="span-2 preview-box">
           <div class="muted">Preview</div>
           <div id="ans-preview" class="tex-preview">$$\text{type above}$$</div>
@@ -214,30 +266,77 @@
     }
   }
 
-  // Difficulty slider starts cleared (no value submitted means no rating)
-  const diffSlider = document.getElementById('diff-slider');
-  const diffClear  = document.getElementById('diff-clear');
-  if (diffSlider) {
-    diffSlider.disabled = true;
-    diffSlider.value = 5;
-    diffClear.checked = true;
-    diffClear.addEventListener('change', () => {
-      diffSlider.disabled = diffClear.checked;
-      if (diffClear.checked) {
-        document.getElementById('diff-val').textContent = 'not rated';
-        diffSlider.removeAttribute('name');
-      } else {
-        document.getElementById('diff-val').textContent = diffSlider.value + '/10';
-        diffSlider.setAttribute('name', 'rated_difficulty');
-      }
-    });
-    // On load: slider is disabled, name removed
-    diffSlider.removeAttribute('name');
+  // Difficulty slider: name is absent until user touches it (untouched = 2 credits)
+  let diffTouched = false;
+  let editDiffTouched = false;
+
+  function onDiffSliderInput() {
+    const sl = document.getElementById('diff-slider');
+    if (!diffTouched) {
+      diffTouched = true;
+      sl.setAttribute('name', 'rated_difficulty');
+    }
+    document.getElementById('diff-val').textContent = sl.value + '/10';
   }
 
-  function clearSlider(sliderId, valId, resetText) {
-    const sl = document.getElementById(sliderId);
-    // toggled by checkbox handler above
+  function toggleChallenge(on) {
+    document.getElementById('challenge-form-wrap').style.display = on ? 'block' : 'none';
+    const cont = document.getElementById('challenge-continue');
+    if (cont) cont.style.display = on ? 'none' : 'block';
   }
+
+  // ── Multi-step working out ─────────────────────────────────────────────
+  let _lineIdx = 0;
+
+  function addLine() {
+    _lineIdx++;
+    const wrap = document.getElementById('working-lines');
+    const row = document.createElement('div');
+    row.className = 'working-line-row';
+    row.dataset.idx = _lineIdx;
+    row.innerHTML =
+      '<span class="line-num"></span>' +
+      '<textarea class="working-line-input" rows="2" ' +
+        'placeholder="e.g. \\\\frac{d}{dx}(x^2) = 2x" ' +
+        'oninput="updateWorkingPreview()"></textarea>' +
+      '<button type="button" class="btn-remove-line" onclick="removeLine(this)">×</button>';
+    wrap.appendChild(row);
+    renumberLines();
+    row.querySelector('textarea').focus();
+    updateWorkingPreview();
+  }
+
+  function removeLine(btn) {
+    btn.closest('.working-line-row').remove();
+    renumberLines();
+    updateWorkingPreview();
+  }
+
+  function renumberLines() {
+    document.querySelectorAll('.working-line-row .line-num')
+      .forEach((el, i) => { el.textContent = i + 1; });
+  }
+
+  function updateWorkingPreview() {
+    const lines = Array.from(document.querySelectorAll('.working-line-input'))
+      .map(el => el.value.trim()).filter(Boolean);
+    let combined;
+    if (lines.length === 0) {
+      combined = '\\text{type above}';
+    } else if (lines.length === 1) {
+      combined = lines[0];
+    } else {
+      combined = '\\displaylines{' + lines.join(' \\\\ ') + '}';
+    }
+    document.getElementById('submitted_answer_hidden').value = combined;
+    const dst = document.getElementById('ans-preview');
+    dst.innerHTML = '$$' + combined + '$$';
+    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([dst]).catch(() => {});
+  }
+
+  function prepareSubmit() { updateWorkingPreview(); }
+
+  // Start with one blank line
+  if (document.getElementById('working-lines')) addLine();
 </script>
 {% endblock %}

@@ -465,6 +465,71 @@ hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 /* ── Completion rating tags ─────────────────────────────────────────────── */
 .completion-ratings { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 
+/* ── Multi-step working out ─────────────────────────────────────────────── */
+.working-out-header {
+  display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px;
+}
+.working-line-row {
+  display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;
+}
+.line-num {
+  min-width: 22px; height: 36px; line-height: 36px;
+  text-align: center; font-size: 12px; font-weight: 700;
+  color: var(--muted); flex-shrink: 0;
+}
+.working-line-input {
+  flex: 1; resize: vertical; min-height: 40px;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font: inherit; font-size: 14px;
+  font-family: "SF Mono", "Fira Mono", monospace;
+  transition: border-color .15s;
+}
+.working-line-input:focus { outline: none; border-color: var(--accent); }
+.btn-remove-line {
+  flex-shrink: 0; width: 30px; height: 30px; margin-top: 5px;
+  background: none; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--muted); font-size: 18px; line-height: 1;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: border-color .15s, color .15s;
+}
+.btn-remove-line:hover { border-color: var(--danger); color: var(--danger); }
+.btn-add-line {
+  margin-top: 4px; padding: 7px 14px;
+  background: none; border: 1px dashed var(--border); border-radius: 8px;
+  color: var(--muted); font: inherit; font-size: 13px;
+  cursor: pointer; transition: border-color .15s, color .15s;
+}
+.btn-add-line:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Apple-style toggle ─────────────────────────────────────────────────── */
+.challenge-toggle-row {
+  display: flex; align-items: center; gap: 12px; margin: 0;
+}
+.challenge-toggle-row h3 { margin: 0; flex: 1; }
+.apple-toggle {
+  position: relative; display: inline-block;
+  width: 44px; height: 26px; cursor: pointer; flex-shrink: 0;
+}
+.apple-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.apple-toggle-track {
+  position: absolute; inset: 0;
+  background: var(--panel-2); border: 1.5px solid var(--border);
+  border-radius: 13px; transition: background .2s, border-color .2s;
+}
+.apple-toggle-track::after {
+  content: ''; position: absolute;
+  left: 3px; top: 50%; transform: translateY(-50%);
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--muted); transition: left .2s, background .2s;
+}
+.apple-toggle input:checked + .apple-toggle-track {
+  background: var(--ok); border-color: var(--ok);
+}
+.apple-toggle input:checked + .apple-toggle-track::after {
+  left: calc(100% - 21px); background: #fff;
+}
+
 @media (max-width: 720px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: span 1; }
