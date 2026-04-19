@@ -26,6 +26,7 @@
       {% if q.topic %}<span class="tag">{{ q.topic }}</span>{% endif %}
       <span class="tag">Difficulty {{ q.difficulty }}/10</span>
       <span class="tag">Completions: {{ q.completion_count }}</span>
+      {% if q.image_filename %}<span class="tag tag-img">⬛ image</span>{% endif %}
       {% if q.id in done_ids %}<span class="tag tag-done">✓ done</span>{% endif %}
     </div>
     <div class="card-preview tex-preview">$${{ q.latex|safe }}$$</div>
@@ -120,6 +121,9 @@
           onchange="validateImageSize(this)">
         <span id="img-size-warn" class="field-warn" style="display:none">File exceeds 150 KB — please choose a smaller image.</span>
       </label>
+      <div class="span-2 img-upload-preview" id="img-preview-wrap" style="display:none">
+        <img id="img-preview" src="" alt="Preview" class="q-image">
+      </div>
 
       <label class="span-2 checkbox-agree">
         <input type="checkbox" name="agree_tos" required>
@@ -160,11 +164,18 @@
 
   function validateImageSize(input) {
     const warn = document.getElementById('img-size-warn');
-    if (input.files[0] && input.files[0].size > 150 * 1024) {
+    const wrap = document.getElementById('img-preview-wrap');
+    const preview = document.getElementById('img-preview');
+    if (!input.files[0]) { wrap.style.display = 'none'; return; }
+    if (input.files[0].size > 150 * 1024) {
       warn.style.display = 'block';
+      wrap.style.display = 'none';
       input.value = '';
     } else {
       warn.style.display = 'none';
+      const reader = new FileReader();
+      reader.onload = e => { preview.src = e.target.result; wrap.style.display = 'block'; };
+      reader.readAsDataURL(input.files[0]);
     }
   }
 
@@ -182,7 +193,11 @@
       document.getElementById(frameId).src = '';
     }
   }
-  function closeAddModal(){ document.getElementById('addModal').style.display='none'; }
+  function closeAddModal(){
+    document.getElementById('addModal').style.display='none';
+    document.getElementById('img-preview-wrap').style.display='none';
+    document.getElementById('img-preview').src='';
+  }
 
   function renderPreview(srcId, dstId){
     const src = document.getElementById(srcId).value || '\\text{type above}';

@@ -477,10 +477,12 @@ hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 
 /* ── Question image ──────────────────────────────────────────────────────── */
 .q-image-wrap { margin: 16px 0; text-align: center; }
+.img-upload-preview { margin-top: 8px; }
 .q-image {
   max-width: 100%; max-height: 420px;
   border-radius: 8px; border: 1px solid var(--border);
 }
+.tag-img { background: rgba(148,210,255,.1); color: var(--accent-2); }
 
 /* ── Image upload & ToS checkbox ────────────────────────────────────────── */
 .field-warn { display: block; color: var(--danger); font-size: 13px; margin-top: 4px; }
