@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Challenges · QBank{% endblock %}
+{% block content %}
+<h1>Answer challenges</h1>
+
+<section class="panel">
+  <h2>Incoming (on your questions)</h2>
+  {% if not incoming %}
+    <p class="muted">No open challenges on your questions.</p>
+  {% else %}
+    {% for ch in incoming %}
+    <div class="challenge">
+      <div class="card-meta">
+        <span class="tag subject-{{ ch.question.subject }}">{{ SUBJECT_LABELS[ch.question.subject] }}</span>
+        <span class="muted">from {{ ch.challenger.username }} · {{ ch.created_at.strftime('%Y-%m-%d') }}</span>
+      </div>
+      <div class="split">
+        <div>
+          <h4>Original question</h4>
+          <div class="tex-preview">$${{ ch.question.latex|safe }}$$</div>
+          <h4>Your official answer</h4>
+          <div class="tex-preview">$${{ ch.question.answer_latex|safe }}$$</div>
+        </div>
+        <div>
+          <h4>Proposed answer</h4>
+          <div class="tex-preview">$${{ ch.proposed_answer_latex|safe }}$$</div>
+          {% if ch.note %}<p class="muted"><b>Note:</b> {{ ch.note }}</p>{% endif %}
+        </div>
+      </div>
+      <form method="post" action="{{ url_for('resolve_challenge', cid=ch.id) }}" class="resolve-row">
+        <button name="outcome" value="original_wrong" class="btn warn">Original wrong (−1 cr to you, +1 to challenger)</button>
+        <button name="outcome" value="both_correct" class="btn">Both correct (+1 cr to challenger)</button>
+        <button name="outcome" value="rejected" class="btn">Reject challenge</button>
+      </form>
+    </div>
+    {% endfor %}
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Outgoing (submitted by you)</h2>
+  {% if not outgoing %}
+    <p class="muted">You haven't submitted any challenges.</p>
+  {% else %}
+    <table class="tbl">
+      <thead><tr><th>Question</th><th>Proposed</th><th>Status</th><th>When</th></tr></thead>
+      <tbody>
+      {% for ch in outgoing %}
+        <tr>
+          <td><a href="{{ url_for('view_question', qid=ch.question.id) }}">#{{ ch.question.id }}</a>
+              <span class="tag subject-{{ ch.question.subject }}">{{ SUBJECT_LABELS[ch.question.subject] }}</span></td>
+          <td class="tex-cell">$${{ ch.proposed_answer_latex|safe }}$$</td>
+          <td><span class="status status-{{ ch.status }}">{{ ch.status.replace('_',' ') }}</span></td>
+          <td class="muted">{{ ch.created_at.strftime('%Y-%m-%d') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+{% endblock %}

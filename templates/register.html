@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Sign up · QBank{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <h1>Create an account</h1>
+  <form method="post" class="form-grid one-col">
+    <label>Username <input name="username" autofocus required></label>
+    <label>Password <input type="password" name="password" required></label>
+    <button type="submit" class="btn primary">Sign up (+10 credits)</button>
+  </form>
+  <p class="muted">Already have an account? <a href="{{ url_for('login') }}">Log in</a>.</p>
+</div>
+{% endblock %}

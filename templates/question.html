@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Question #{{ q.id }} · QBank{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('index', subject=q.subject) }}" class="back">← Back to {{ SUBJECT_LABELS[q.subject] }}</a>
+
+<div class="q-page">
+  <div class="card-meta">
+    <span class="tag subject-{{ q.subject }}">{{ SUBJECT_LABELS[q.subject] }}</span>
+    {% if q.topic %}<span class="tag">{{ q.topic }}</span>{% endif %}
+    <span class="tag">Author-rated difficulty {{ q.difficulty }}/10</span>
+    <span class="tag">Completions: {{ q.completion_count }}</span>
+    <span class="muted">by {{ q.author.username }}</span>
+  </div>
+
+  <section class="panel">
+    <h2>Question</h2>
+    <div class="tex-preview big">$${{ q.latex|safe }}$$</div>
+  </section>
+
+  {% if existing %}
+    <section class="panel">
+      <h2>You completed this</h2>
+      <p>Credits charged: <b>{{ existing.credits_charged }}</b>
+        {% if existing.rated_difficulty %}(rated {{ existing.rated_difficulty }}/10){% endif %}.</p>
+      <details>
+        <summary>Show official answer</summary>
+        <div class="tex-preview big">$${{ q.answer_latex|safe }}$$</div>
+      </details>
+      {% if existing.submitted_answer %}
+      <details>
+        <summary>Your submitted answer</summary>
+        <div class="tex-preview big">$${{ existing.submitted_answer|safe }}$$</div>
+      </details>
+      {% endif %}
+
+      <hr>
+      <h3>Think the official answer is wrong?</h3>
+      <form method="post" action="{{ url_for('submit_challenge', qid=q.id) }}" class="form-grid">
+        <label class="span-2">
+          Your proposed answer (LaTeX)
+          <textarea id="ch-latex" name="proposed_answer_latex" rows="3" required
+            oninput="renderPreview('ch-latex','ch-preview')"></textarea>
+        </label>
+        <div class="span-2 preview-box">
+          <div class="muted">Preview</div>
+          <div id="ch-preview" class="tex-preview">$$\text{type above}$$</div>
+        </div>
+        <label class="span-2">
+          Note (optional)
+          <textarea name="note" rows="2" placeholder="Why do you think the original is wrong?"></textarea>
+        </label>
+        <div class="span-2 modal-actions">
+          <button type="submit" class="btn primary">Submit challenge</button>
+        </div>
+      </form>
+    </section>
+
+  {% elif current_user and current_user.id == q.author_id %}
+    <section class="panel">
+      <h2>This is your own question</h2>
+      <details>
+        <summary>Show official answer</summary>
+        <div class="tex-preview big">$${{ q.answer_latex|safe }}$$</div>
+      </details>
+    </section>
+
+  {% else %}
+    <section class="panel">
+      <h2>Submit your answer</h2>
+      <p class="muted">
+        Completing a question costs <b>2 credits</b>, or <b>1 credit</b> if you rate the difficulty.
+        You currently have <b>{{ current_user.credits }}</b> credits.
+      </p>
+
+      <form method="post" class="form-grid">
+        <label class="span-2">
+          Your answer (LaTeX)
+          <textarea id="ans-latex" name="submitted_answer" rows="3"
+            oninput="renderPreview('ans-latex','ans-preview')"></textarea>
+        </label>
+        <div class="span-2 preview-box">
+          <div class="muted">Preview</div>
+          <div id="ans-preview" class="tex-preview">$$\text{type above}$$</div>
+        </div>
+
+        <label>
+          Self-check: was your answer correct?
+          <select name="was_correct">
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </label>
+        <label>
+          Rate difficulty 1–10 (optional, costs only 1 credit)
+          <input type="number" name="rated_difficulty" min="1" max="10" placeholder="leave blank for 2-cr cost">
+        </label>
+
+        <div class="span-2 modal-actions">
+          <button type="submit" class="btn primary">Submit & reveal answer</button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function renderPreview(srcId, dstId){
+    const src = document.getElementById(srcId).value || '\\text{type above}';
+    const dst = document.getElementById(dstId);
+    dst.innerHTML = '$$' + src + '$$';
+    if (window.MathJax && MathJax.typesetPromise) {
+      MathJax.typesetPromise([dst]).catch(()=>{});
+    }
+  }
+</script>
+{% endblock %}

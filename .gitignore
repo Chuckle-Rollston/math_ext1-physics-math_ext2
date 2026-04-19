@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# App
+app.db
+*.sqlite
+*.sqlite3
+
+# Vercel / build
+.vercel/
+.DS_Store

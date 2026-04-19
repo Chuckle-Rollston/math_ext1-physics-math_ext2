@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}How credits work · QBank{% endblock %}
+{% block content %}
+<div class="prose">
+  <h1>How the credit system works</h1>
+  <p class="muted">Credits are how QBank keeps the question bank growing. You earn them by contributing, and you spend them to practise other people's questions.</p>
+
+  <h2>Starting balance</h2>
+  <ul>
+    <li>Every new account starts with <b>10 credits</b>.</li>
+  </ul>
+
+  <h2>Earning credits</h2>
+  <ul>
+    <li><b>+20 credits</b> every time you add a new question.</li>
+    <li><b>+6 credits</b> each time your question reaches another <b>10 completions</b> (so 10, 20, 30 ... total completions).</li>
+    <li><b>+1 credit</b> if you challenge an official answer and, in the author's judgement, both answers are correct.</li>
+    <li><b>+1 credit</b> (pulled from the question's author) if you challenge and the original answer is judged wrong.</li>
+  </ul>
+
+  <h2>Spending credits</h2>
+  <ul>
+    <li><b>−2 credits</b> to complete a question.</li>
+    <li><b>−1 credit</b> instead, if you also rate the question's difficulty out of 10 while completing it. Ratings help other students.</li>
+    <li><b>−1 credit</b> from the author's balance if a challenge proves the original answer was wrong. The challenger gets that credit.</li>
+  </ul>
+
+  <h2>Why the design?</h2>
+  <p>The point of credits is to nudge the community toward <i>adding</i> questions. Practising other people's work costs a little, but contributing your own (or helping rate or correct other work) pays back more than it costs. The 10-completion bonus means the most useful questions keep rewarding their authors over time.</p>
+
+  <h2>Answer challenges</h2>
+  <p>After completing a question you'll see the official answer. If you believe it's wrong, submit a challenge with your proposed answer. The question's author reviews it and picks one of three outcomes:</p>
+  <ol>
+    <li><b>Original wrong</b> — the official answer is replaced with yours, and 1 credit moves from the author to you.</li>
+    <li><b>Both correct</b> — you get +1 credit as a reward for contributing an alternative.</li>
+    <li><b>Rejected</b> — no credit changes hands.</li>
+  </ol>
+</div>
+{% endblock %}

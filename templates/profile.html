@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}{{ current_user.username }} · QBank{% endblock %}
+{% block content %}
+<div class="auth-card wide">
+  <h1>{{ current_user.username }}</h1>
+  <p class="muted">Balance: <b>{{ current_user.credits }}</b> credits</p>
+</div>
+
+<section class="panel">
+  <h2>Your questions ({{ mine|length }})</h2>
+  {% if not mine %}
+    <p class="muted">You haven't added a question yet. Earn 20 credits by posting one.</p>
+  {% else %}
+    <table class="tbl">
+      <thead><tr><th>Subject</th><th>Difficulty</th><th>Completions</th><th>Payout buckets</th></tr></thead>
+      <tbody>
+        {% for q in mine %}
+        <tr>
+          <td><a href="{{ url_for('view_question', qid=q.id) }}">#{{ q.id }}</a>
+              <span class="tag subject-{{ q.subject }}">{{ SUBJECT_LABELS[q.subject] }}</span></td>
+          <td>{{ q.difficulty }}/10</td>
+          <td>{{ q.completion_count }}</td>
+          <td>{{ q.credits_awarded_buckets }} (×6 cr)</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <h2>Recently completed</h2>
+  {% if not done %}
+    <p class="muted">No completions yet.</p>
+  {% else %}
+    <table class="tbl">
+      <thead><tr><th>Question</th><th>Cost</th><th>Rated</th><th>When</th></tr></thead>
+      <tbody>
+        {% for c in done %}
+        <tr>
+          <td><a href="{{ url_for('view_question', qid=c.question_id) }}">#{{ c.question_id }}</a></td>
+          <td>{{ c.credits_charged }} cr</td>
+          <td>{{ c.rated_difficulty or '—' }}</td>
+          <td class="muted">{{ c.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+</section>
+{% endblock %}

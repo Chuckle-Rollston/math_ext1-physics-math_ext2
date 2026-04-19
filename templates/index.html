@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Questions · QBank{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+  <h1>
+    {% if active_subject == 'all' %}All questions{% else %}{{ SUBJECT_LABELS[active_subject] }}{% endif %}
+    <span class="muted">({{ questions|length }})</span>
+  </h1>
+  {% if current_user %}
+    <button class="btn primary" onclick="openAddModal()">+ Add new question</button>
+  {% else %}
+    <a href="{{ url_for('login') }}" class="btn primary">Log in to add a question</a>
+  {% endif %}
+</div>
+
+{% if not questions %}
+  <p class="empty">No questions yet. Be the first to add one!</p>
+{% endif %}
+
+<div class="grid">
+  {% for q in questions %}
+  <a class="card subject-accent-{{ q.subject }}" href="{{ url_for('view_question', qid=q.id) }}">
+    <div class="card-meta">
+      <span class="tag subject-{{ q.subject }}">{{ SUBJECT_LABELS[q.subject] }}</span>
+      {% if q.topic %}<span class="tag">{{ q.topic }}</span>{% endif %}
+      <span class="tag">Difficulty {{ q.difficulty }}/10</span>
+      <span class="tag">Completions: {{ q.completion_count }}</span>
+      {% if q.id in done_ids %}<span class="tag tag-done">✓ done</span>{% endif %}
+    </div>
+    <div class="card-preview tex-preview">$${{ q.latex|safe }}$$</div>
+    <div class="card-foot muted">by {{ q.author.username }}</div>
+  </a>
+  {% endfor %}
+</div>
+
+{% if current_user %}
+<!-- Add Question Modal -->
+<div id="addModal" class="modal-backdrop" style="display:none" onclick="if(event.target===this)closeAddModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Add a new question</h2>
+      <button class="close" onclick="closeAddModal()">×</button>
+    </div>
+    <form method="post" action="{{ url_for('add_question') }}" class="form-grid">
+      <label>
+        Subject
+        <select id="q-subject" name="subject" required onchange="updateTopics()">
+          {% for s in SUBJECTS %}
+          <option value="{{ s }}" {% if active_subject == s %}selected{% endif %}>{{ SUBJECT_LABELS[s] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Topic
+        <select id="q-topic" name="topic" required></select>
+      </label>
+      <label>
+        Perceived difficulty (1–10)
+        <input type="number" name="difficulty" min="1" max="10" value="5" required>
+      </label>
+
+      <label class="span-2">
+        Question (LaTeX)
+        <textarea id="q-latex" name="latex" rows="5" required
+          placeholder="e.g. \int_0^1 x^2 \, dx" oninput="renderPreview('q-latex','q-preview')"></textarea>
+      </label>
+      <div class="span-2 preview-box">
+        <div class="muted">Question preview</div>
+        <div id="q-preview" class="tex-preview">$$\text{type above}$$</div>
+      </div>
+
+      <label class="span-2">
+        Answer (LaTeX)
+        <textarea id="a-latex" name="answer_latex" rows="3" required
+          placeholder="e.g. \frac{1}{3}" oninput="renderPreview('a-latex','a-preview')"></textarea>
+      </label>
+      <div class="span-2 preview-box">
+        <div class="muted">Answer preview</div>
+        <div id="a-preview" class="tex-preview">$$\text{type above}$$</div>
+      </div>
+
+      <div class="span-2 modal-actions">
+        <button type="button" onclick="closeAddModal()">Cancel</button>
+        <button type="submit" class="btn primary">Post question (+20 credits)</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const TOPICS = {{ TOPICS|tojson }};
+
+  function updateTopics(){
+    const subj = document.getElementById('q-subject').value;
+    const sel = document.getElementById('q-topic');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    (TOPICS[subj] || []).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      if (t === prev) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  function openAddModal(){
+    document.getElementById('addModal').style.display='flex';
+    updateTopics();
+  }
+  function closeAddModal(){ document.getElementById('addModal').style.display='none'; }
+
+  function renderPreview(srcId, dstId){
+    const src = document.getElementById(srcId).value || '\\text{type above}';
+    const dst = document.getElementById(dstId);
+    dst.innerHTML = '$$' + src + '$$';
+    if (window.MathJax && MathJax.typesetPromise) {
+      MathJax.typesetPromise([dst]).catch(()=>{});
+    }
+  }
+</script>
+{% endblock %}
