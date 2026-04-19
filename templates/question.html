@@ -40,7 +40,91 @@
     {% endif %}
   </section>
 
-  {% if existing %}
+  {% if admin %}
+    <section class="panel admin-panel">
+      <div class="admin-badge">Admin</div>
+      <details open>
+        <summary>Official answer</summary>
+        <div class="tex-preview big" style="margin-top:10px">$${{ q.answer_latex|safe }}$$</div>
+        {% if q.answer_graph_url %}
+        <div class="graph-embed">
+          <iframe src="{{ q.answer_graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
+        </div>
+        {% endif %}
+        {% if q.marking_guidelines %}
+        <div class="marking-guidelines">
+          <h4>Marking guidelines</h4>
+          <div class="marking-body">{{ q.marking_guidelines|safe }}</div>
+        </div>
+        {% endif %}
+      </details>
+
+      <hr>
+      <h3 style="margin-bottom:14px">Edit question</h3>
+      <form method="post" action="{{ url_for('edit_question', qid=q.id) }}" class="form-grid">
+        <label>
+          Subject
+          <select id="admin-subject" name="subject" onchange="adminUpdateTopics()">
+            {% for s in SUBJECTS %}
+            <option value="{{ s }}" {% if q.subject == s %}selected{% endif %}>{{ SUBJECT_LABELS[s] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Topic
+          <select id="admin-topic" name="topic">
+            {% for t in TOPICS[q.subject] %}
+            <option value="{{ t }}" {% if q.topic == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          Difficulty (1–10) — <b id="admin-diff-val">{{ q.difficulty }}</b>
+          <div class="single-range" style="margin-top:6px">
+            <input type="range" name="difficulty" min="1" max="10" step="1" value="{{ q.difficulty }}"
+              oninput="document.getElementById('admin-diff-val').textContent = this.value">
+            <div class="range-tick-row"><span>1</span><span>5</span><span>10</span></div>
+          </div>
+        </label>
+        <label>
+          Marks
+          <input type="number" name="marks" min="1" max="20" value="{{ q.marks or '' }}" placeholder="optional">
+        </label>
+        <label class="span-2">
+          Question (LaTeX)
+          <textarea name="latex" rows="4" oninput="renderPreview('admin-q-latex-hidden','admin-q-preview')" id="admin-q-latex">{{ q.latex }}</textarea>
+        </label>
+        <div class="span-2 preview-box">
+          <div class="muted">Question preview</div>
+          <div id="admin-q-preview" class="tex-preview">$${{ q.latex|safe }}$$</div>
+        </div>
+        <label class="span-2">
+          Answer (LaTeX)
+          <textarea name="answer_latex" rows="4" oninput="renderPreview('admin-a-latex','admin-a-preview')" id="admin-a-latex">{{ q.answer_latex }}</textarea>
+        </label>
+        <div class="span-2 preview-box">
+          <div class="muted">Answer preview</div>
+          <div id="admin-a-preview" class="tex-preview">$${{ q.answer_latex|safe }}$$</div>
+        </div>
+        <label class="span-2">
+          Marking guidelines
+          <textarea name="marking_guidelines" rows="3">{{ q.marking_guidelines or '' }}</textarea>
+        </label>
+        <label class="span-2">
+          Question Desmos URL
+          <input type="url" name="graph_url" value="{{ q.graph_url or '' }}" placeholder="https://www.desmos.com/calculator/...">
+        </label>
+        <label class="span-2">
+          Answer Desmos URL
+          <input type="url" name="answer_graph_url" value="{{ q.answer_graph_url or '' }}" placeholder="https://www.desmos.com/calculator/...">
+        </label>
+        <div class="span-2 modal-actions">
+          <button type="submit" class="btn primary">Save changes</button>
+        </div>
+      </form>
+    </section>
+
+  {% elif existing %}
     <section class="panel">
       <h2>You completed this</h2>
       <form method="post" action="{{ url_for('update_ratings', qid=q.id) }}" class="form-grid" style="margin-bottom:16px">
@@ -281,6 +365,34 @@
     }
     document.getElementById('diff-val').textContent = sl.value + '/10';
   }
+
+  // ── Admin edit panel ──────────────────────────────────────────────────────
+  const TOPICS_MAP = {{ TOPICS|tojson }};
+  function adminUpdateTopics() {
+    const subj = document.getElementById('admin-subject').value;
+    const sel  = document.getElementById('admin-topic');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    (TOPICS_MAP[subj] || []).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      if (t === prev) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+  // Wire admin textarea previews using existing renderPreview via element IDs
+  const adminQLat = document.getElementById('admin-q-latex');
+  const adminALat = document.getElementById('admin-a-latex');
+  if (adminQLat) adminQLat.addEventListener('input', () => {
+    const dst = document.getElementById('admin-q-preview');
+    dst.innerHTML = '$$' + adminQLat.value + '$$';
+    if (window.renderMathInElement) renderMathInElement(dst, window.KATEX_OPTS);
+  });
+  if (adminALat) adminALat.addEventListener('input', () => {
+    const dst = document.getElementById('admin-a-preview');
+    dst.innerHTML = '$$' + adminALat.value + '$$';
+    if (window.renderMathInElement) renderMathInElement(dst, window.KATEX_OPTS);
+  });
 
   function toggleChallenge(on) {
     document.getElementById('challenge-form-wrap').style.display = on ? 'block' : 'none';

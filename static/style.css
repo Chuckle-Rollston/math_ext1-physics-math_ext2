@@ -19,6 +19,15 @@
   --radius: 10px;
 }
 
+/* ── Admin panel ────────────────────────────────────────────────────────── */
+.admin-panel { border-color: #b98bff; }
+.admin-badge {
+  display: inline-block; margin-bottom: 12px;
+  padding: 2px 10px; border-radius: 20px;
+  background: rgba(185,139,255,.15); color: #b98bff;
+  font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+}
+
 /* ── NProgress navigation bar ───────────────────────────────────────────── */
 #nprogress { pointer-events: none; }
 #nprogress .bar {

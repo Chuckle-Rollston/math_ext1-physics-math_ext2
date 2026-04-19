@@ -251,6 +251,13 @@ def login_required(view):
     return wrapped
 
 
+ADMIN_USERNAME = "c1616"
+
+def is_admin(user=None):
+    u = user or current_user()
+    return u is not None and u.username == ADMIN_USERNAME
+
+
 @app.context_processor
 def inject_globals():
     return {
@@ -480,7 +487,8 @@ def view_question(qid):
                    .scalar())
     avg_difficulty = round(avg_diff_row, 1) if avg_diff_row is not None else None
     return render_template("question.html", q=q, existing=existing,
-                           study_mode=study_mode, avg_difficulty=avg_difficulty)
+                           study_mode=study_mode, avg_difficulty=avg_difficulty,
+                           admin=is_admin())
 
 
 @app.route("/question/<int:qid>/update-ratings", methods=["POST"])
@@ -825,6 +833,34 @@ with app.app_context():
         if "quality_rating" not in ccols:
             db.session.execute(text("ALTER TABLE completion ADD COLUMN quality_rating INTEGER"))
             db.session.commit()
+
+
+@app.route("/question/<int:qid>/edit", methods=["POST"])
+@login_required
+def edit_question(qid):
+    if not is_admin():
+        abort(403)
+    q = db.session.get(Question, qid)
+    if not q:
+        abort(404)
+    q.subject = request.form.get("subject", q.subject)
+    q.topic = request.form.get("topic", q.topic) or None
+    q.latex = request.form.get("latex", q.latex).strip()
+    q.answer_latex = request.form.get("answer_latex", q.answer_latex).strip()
+    q.marking_guidelines = request.form.get("marking_guidelines", "").strip() or None
+    q.graph_url = _clean_desmos_url(request.form.get("graph_url", ""))
+    q.answer_graph_url = _clean_desmos_url(request.form.get("answer_graph_url", ""))
+    try:
+        q.difficulty = max(1, min(10, int(request.form.get("difficulty", q.difficulty))))
+    except (ValueError, TypeError):
+        pass
+    try:
+        q.marks = int(request.form.get("marks", "")) or None
+    except (ValueError, TypeError):
+        q.marks = None
+    db.session.commit()
+    flash("Question updated.", "ok")
+    return redirect(url_for("view_question", qid=q.id))
 
 
 @app.route("/sw.js")
