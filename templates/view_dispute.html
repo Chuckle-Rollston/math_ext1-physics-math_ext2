@@ -171,9 +171,7 @@
     const src = document.getElementById(srcId).value || '\\text{type above}';
     const dst = document.getElementById(dstId);
     dst.innerHTML = '$$' + src + '$$';
-    if (window.MathJax && MathJax.typesetPromise) {
-      MathJax.typesetPromise([dst]).catch(()=>{});
-    }
+    if (window.renderMathInElement) renderMathInElement(dst, window.KATEX_OPTS);
   }
 </script>
 {% endblock %}

@@ -827,6 +827,15 @@ with app.app_context():
             db.session.commit()
 
 
+@app.route("/sw.js")
+def service_worker():
+    from flask import make_response, send_from_directory
+    resp = make_response(send_from_directory("static", "sw.js"))
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 @app.route("/terms")
 def tos():
     return render_template("tos.html")

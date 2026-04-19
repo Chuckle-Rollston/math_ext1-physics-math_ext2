@@ -266,9 +266,7 @@
     const src = document.getElementById(srcId).value || '\\text{type above}';
     const dst = document.getElementById(dstId);
     dst.innerHTML = '$$' + src + '$$';
-    if (window.MathJax && MathJax.typesetPromise) {
-      MathJax.typesetPromise([dst]).catch(()=>{});
-    }
+    if (window.renderMathInElement) renderMathInElement(dst, window.KATEX_OPTS);
   }
 
   // Difficulty slider: name is absent until user touches it (untouched = 2 credits)
@@ -331,12 +329,12 @@
     } else if (lines.length === 1) {
       combined = lines[0];
     } else {
-      combined = '\\displaylines{' + lines.join(' \\\\ ') + '}';
+      combined = '\\begin{gathered}' + lines.join(' \\\\ ') + '\\end{gathered}';
     }
     document.getElementById('submitted_answer_hidden').value = combined;
     const dst = document.getElementById('ans-preview');
     dst.innerHTML = '$$' + combined + '$$';
-    if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([dst]).catch(() => {});
+    if (window.renderMathInElement) renderMathInElement(dst, window.KATEX_OPTS);
   }
 
   function prepareSubmit() { updateWorkingPreview(); }
