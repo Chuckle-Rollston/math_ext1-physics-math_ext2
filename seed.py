@@ -174,6 +174,60 @@ QUESTIONS = [
     dict(subject="physics", topic="From the universe to the atom", difficulty=5,
          latex=r"\text{Calculate the energy released (in MeV) when deuterium and tritium fuse:} \\ {}^2_1\text{H} + {}^3_1\text{H} \to {}^4_2\text{He} + {}^1_0\text{n} \\ \text{Masses: }{}^2\text{H}=2.01410\text{ u},\ {}^3\text{H}=3.01605\text{ u},\ {}^4\text{He}=4.00260\text{ u},\ n=1.00867\text{ u} \\ (1\text{ u} = 931.5\text{ MeV}/c^2)",
          answer_latex=r"\Delta m = (2.01410+3.01605)-(4.00260+1.00867)=0.01888\text{ u} \\ E=0.01888\times931.5\approx17.6\text{ MeV}"),
+
+    # ── Math Ext 1 — Functions (ChatGPT batch) ──────────────────────────────
+
+    dict(subject="math_ext1", topic="Functions", difficulty=2, marks=3,
+         marking_guidelines="1 mark completing the square, 1 mark vertex, 1 mark minimum value",
+         latex=r"\text{Let } f(x)=x^2-4x+3. \text{ (a) Find the vertex. (b) Hence find the minimum value.}",
+         answer_latex=r"f(x)=(x-2)^2-1 \\ \text{Vertex } (2,-1). \quad \text{Minimum value } -1."),
+
+    dict(subject="math_ext1", topic="Functions", difficulty=4, marks=4,
+         marking_guidelines="2 marks rearranging, 1 mark solving for x, 1 mark correct inverse",
+         latex=r"\text{Find the inverse of } f(x)=\frac{2x+3}{x-1}.",
+         answer_latex=r"y=\frac{2x+3}{x-1} \Rightarrow y(x-1)=2x+3 \Rightarrow x(y-2)=y+3 \Rightarrow x=\frac{y+3}{y-2} \\ \therefore f^{-1}(x)=\frac{x+3}{x-2}"),
+
+    dict(subject="math_ext1", topic="Functions", difficulty=5, marks=4,
+         marking_guidelines="2 marks setting up inequality, 1 mark solving, 1 mark correct domain",
+         latex=r"\text{Determine the domain of } f(x)=\sqrt{\frac{x-1}{x+2}}.",
+         answer_latex=r"\text{Require } \frac{x-1}{x+2}\ge0 \text{ and } x\ne -2. \\ \text{Solution: } x\le -2 \text{ or } x\ge 1, \text{ excluding } x=-2 \\ \therefore \text{Domain} = (-\infty,-2)\cup[1,\infty)"),
+
+    dict(subject="math_ext1", topic="Functions", difficulty=5, marks=4,
+         marking_guidelines="2 marks expanding f(f(x)), 1 mark solving, 1 mark all answers",
+         latex=r"\text{Solve } f(f(x))=0 \text{ for } f(x)=x^2-1.",
+         answer_latex=r"f(f(x))=(x^2-1)^2-1=0 \Rightarrow (x^2-1)^2=1 \\ \Rightarrow x^2-1=\pm1 \Rightarrow x^2=2 \text{ or } x^2=0 \\ \therefore x=\pm\sqrt{2},\ 0"),
+
+    dict(subject="math_ext1", topic="Functions", difficulty=3, marks=3,
+         marking_guidelines="1 mark correct intercepts, 1 mark parabola shape, 1 mark reflection above x-axis",
+         latex=r"\text{Sketch } y=|x^2-4|.",
+         answer_latex=r"\text{Start with parabola } y=x^2-4 \text{ (zeros at } x=\pm2\text{).} \\ \text{Reflect the portion below the x-axis upward.} \\ \text{Minimum values occur at } x=\pm2 \ (y=0); \text{ local max at } (0,4)."),
+
+    # ── Math Ext 1 — Trigonometric functions (ChatGPT batch) ────────────────
+
+    dict(subject="math_ext1", topic="Trigonometric functions", difficulty=2, marks=2,
+         marking_guidelines="1 mark correct general solution, 1 mark both values in range",
+         latex=r"\text{Solve } 2\sin x=1 \text{ for } 0\le x<2\pi.",
+         answer_latex=r"\sin x=\frac{1}{2} \Rightarrow x=\frac{\pi}{6},\ \frac{5\pi}{6}"),
+
+    dict(subject="math_ext1", topic="Trigonometric functions", difficulty=2, marks=2,
+         marking_guidelines="1 mark unit circle reference, 1 mark conclusion",
+         latex=r"\text{Prove } \sin^2 x+\cos^2 x=1.",
+         answer_latex=r"\text{On the unit circle, a point at angle } x \text{ has coordinates } (\cos x,\sin x). \\ \text{Since it lies on } X^2+Y^2=1, \text{ we have } \cos^2 x+\sin^2 x=1. \quad \square"),
+
+    dict(subject="math_ext1", topic="Trigonometric functions", difficulty=2, marks=2,
+         marking_guidelines="1 mark principal value, 1 mark second solution",
+         latex=r"\text{Solve } \tan x=1 \text{ for } 0\le x<2\pi.",
+         answer_latex=r"x=\frac{\pi}{4},\ \frac{5\pi}{4}"),
+
+    dict(subject="math_ext1", topic="Trigonometric functions", difficulty=5, marks=4,
+         marking_guidelines="1 mark writing 75° as sum, 1 mark applying addition formula, 2 marks correct simplification",
+         latex=r"\text{Find the exact value of } \sin 75°.",
+         answer_latex=r"\sin 75° = \sin(45°+30°) = \sin45°\cos30°+\cos45°\sin30° \\ = \frac{\sqrt{2}}{2}\cdot\frac{\sqrt{3}}{2}+\frac{\sqrt{2}}{2}\cdot\frac{1}{2} = \frac{\sqrt{6}+\sqrt{2}}{4}"),
+
+    dict(subject="math_ext1", topic="Trigonometric functions", difficulty=1, marks=2,
+         marking_guidelines="1 mark correct intercepts and period, 1 mark correct max/min",
+         latex=r"\text{Sketch } y=\sin x \text{ for } 0\le x\le 2\pi.",
+         answer_latex=r"\text{Zeros at } x=0,\pi,2\pi. \quad \text{Maximum } 1 \text{ at } x=\tfrac{\pi}{2}. \quad \text{Minimum } -1 \text{ at } x=\tfrac{3\pi}{2}."),
 ]
 
 
@@ -202,6 +256,8 @@ def run():
                 difficulty=q["difficulty"],
                 latex=q["latex"],
                 answer_latex=q["answer_latex"],
+                marks=q.get("marks"),
+                marking_guidelines=q.get("marking_guidelines"),
             )
             db.session.add(question)
             added += 1
