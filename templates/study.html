@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Study Mode · QBank{% endblock %}
+
+{% block content %}
+<div class="prose" style="max-width:680px">
+  <h1>Study Mode</h1>
+  <p class="muted">Set your filters and QBank will serve you questions one at a time. Unanswered questions come first; once you've done them all it loops back.</p>
+
+  <form method="post" class="study-form">
+
+    <!-- Subjects -->
+    <div class="study-section">
+      <h2>Subjects</h2>
+      <div class="checkbox-grid">
+        {% for s in SUBJECTS %}
+        <label class="check-card {% if s in prefs.get('subjects', SUBJECTS) %}checked{% endif %}">
+          <input type="checkbox" name="subjects" value="{{ s }}"
+            {% if s in prefs.get('subjects', SUBJECTS) %}checked{% endif %}
+            onchange="this.closest('.check-card').classList.toggle('checked', this.checked); syncTopics()">
+          <span class="check-label subject-color-{{ s }}">{{ SUBJECT_LABELS[s] }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Topics -->
+    <div class="study-section">
+      <h2>Topics <span class="muted" style="font-weight:400;font-size:.85em">(leave all unchecked to include every topic)</span></h2>
+      {% for s in SUBJECTS %}
+      <div class="topic-group" id="tg-{{ s }}" style="display:none">
+        <div class="topic-group-label subject-color-{{ s }}">{{ SUBJECT_LABELS[s] }}</div>
+        <div class="checkbox-grid small">
+          {% for t in TOPICS[s] %}
+          <label class="check-card {% if t in prefs.get('topics', []) %}checked{% endif %}">
+            <input type="checkbox" name="topics" value="{{ t }}"
+              {% if t in prefs.get('topics', []) %}checked{% endif %}
+              onchange="this.closest('.check-card').classList.toggle('checked', this.checked)">
+            <span class="check-label">{{ t }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Difficulty range -->
+    <div class="study-section">
+      <h2>Difficulty</h2>
+      <div class="dual-range-wrap">
+        <div class="dual-range" id="diff-range">
+          <div class="dual-range-track">
+            <div class="dual-range-fill" id="dr-fill"></div>
+          </div>
+          <input type="range" class="dual-range-input" id="dr-min" name="diff_min"
+            min="1" max="10" step="1" value="{{ prefs.get('diff_min', 1) }}">
+          <input type="range" class="dual-range-input" id="dr-max" name="diff_max"
+            min="1" max="10" step="1" value="{{ prefs.get('diff_max', 10) }}">
+        </div>
+        <div class="dual-range-readout">
+          Difficulty <b id="dr-min-val">{{ prefs.get('diff_min', 1) }}</b>
+          &nbsp;–&nbsp;
+          <b id="dr-max-val">{{ prefs.get('diff_max', 10) }}</b>
+          &nbsp; out of 10
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn primary" style="margin-top:8px;padding:12px 28px;font-size:16px">
+      Start studying →
+    </button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // ── Dual range slider ──────────────────────────────────────────────────
+  const drMin = document.getElementById('dr-min');
+  const drMax = document.getElementById('dr-max');
+  const drFill = document.getElementById('dr-fill');
+  const drMinVal = document.getElementById('dr-min-val');
+  const drMaxVal = document.getElementById('dr-max-val');
+
+  function pct(v) { return (v - 1) / 9 * 100; }
+
+  function updateRange() {
+    let lo = parseInt(drMin.value), hi = parseInt(drMax.value);
+    if (lo > hi) {
+      if (document.activeElement === drMin) drMin.value = lo = hi;
+      else drMax.value = hi = lo;
+    }
+    drFill.style.left  = pct(lo) + '%';
+    drFill.style.width = (pct(hi) - pct(lo)) + '%';
+    drMinVal.textContent = lo;
+    drMaxVal.textContent = hi;
+  }
+
+  drMin.addEventListener('input', updateRange);
+  drMax.addEventListener('input', updateRange);
+  updateRange();
+
+  // ── Topic visibility synced with subject checkboxes ────────────────────
+  const SUBJECTS = {{ SUBJECTS|tojson }};
+
+  function syncTopics() {
+    SUBJECTS.forEach(s => {
+      const cb = document.querySelector(`input[name=subjects][value="${s}"]`);
+      const grp = document.getElementById('tg-' + s);
+      if (grp) grp.style.display = cb && cb.checked ? 'block' : 'none';
+    });
+  }
+
+  syncTopics(); // run on load
+</script>
+{% endblock %}

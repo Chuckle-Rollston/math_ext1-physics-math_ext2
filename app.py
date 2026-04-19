@@ -1,4 +1,5 @@
 import os
+import random
 import secrets
 from collections import Counter
 from functools import wraps
@@ -112,6 +113,8 @@ class Question(db.Model):
     latex = db.Column(db.Text, nullable=False)
     answer_latex = db.Column(db.Text, nullable=False)
     difficulty = db.Column(db.Integer, nullable=False)  # 1-10
+    marks = db.Column(db.Integer, nullable=True)
+    marking_guidelines = db.Column(db.Text, nullable=True)
     graph_url = db.Column(db.String(300), nullable=True)
     answer_graph_url = db.Column(db.String(300), nullable=True)
     completion_count = db.Column(db.Integer, default=0, nullable=False)
@@ -124,6 +127,7 @@ class Completion(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     question_id = db.Column(db.Integer, db.ForeignKey("question.id"), nullable=False)
     rated_difficulty = db.Column(db.Integer, nullable=True)  # 1-10 if rated
+    quality_rating = db.Column(db.Integer, nullable=True)   # 1-10 question quality
     credits_charged = db.Column(db.Integer, nullable=False)
     submitted_answer = db.Column(db.Text, nullable=True)
     was_correct = db.Column(db.Boolean, default=False, nullable=False)  # self-marked
@@ -331,11 +335,16 @@ def add_question():
     answer_latex = request.form.get("answer_latex", "").strip()
     graph_url = _clean_desmos_url(request.form.get("graph_url", ""))
     answer_graph_url = _clean_desmos_url(request.form.get("answer_graph_url", ""))
+    marking_guidelines = request.form.get("marking_guidelines", "").strip() or None
     try:
         difficulty = int(request.form.get("difficulty", "5"))
     except ValueError:
         difficulty = 5
     difficulty = max(1, min(10, difficulty))
+    try:
+        marks = int(request.form.get("marks", ""))
+    except (ValueError, TypeError):
+        marks = None
 
     if subject not in SUBJECTS or not latex or not answer_latex:
         flash("Subject, question, and answer are all required.", "error")
@@ -351,6 +360,8 @@ def add_question():
         latex=latex,
         answer_latex=answer_latex,
         difficulty=difficulty,
+        marks=marks,
+        marking_guidelines=marking_guidelines,
         graph_url=graph_url,
         answer_graph_url=answer_graph_url,
     )
@@ -379,12 +390,20 @@ def view_question(qid):
         submitted = request.form.get("submitted_answer", "").strip()
         was_correct = request.form.get("was_correct") == "yes"
         rated = request.form.get("rated_difficulty", "").strip()
+        quality = request.form.get("quality_rating", "").strip()
+        study_mode = request.form.get("study") == "1"
         try:
             rated_int = int(rated) if rated else None
         except ValueError:
             rated_int = None
         if rated_int is not None:
             rated_int = max(1, min(10, rated_int))
+        try:
+            quality_int = int(quality) if quality else None
+        except ValueError:
+            quality_int = None
+        if quality_int is not None:
+            quality_int = max(1, min(10, quality_int))
 
         cost = 1 if rated_int is not None else 2
         if user.credits < cost:
@@ -395,6 +414,7 @@ def view_question(qid):
             user_id=user.id,
             question_id=q.id,
             rated_difficulty=rated_int,
+            quality_rating=quality_int,
             credits_charged=cost,
             submitted_answer=submitted or None,
             was_correct=was_correct,
@@ -414,9 +434,12 @@ def view_question(qid):
         db.session.commit()
         msg = "Completed. +1 credit for rating!" if rated_int is not None else "Completed."
         flash(msg, "ok")
+        if study_mode:
+            return redirect(url_for("study_next"))
         return redirect(url_for("view_question", qid=q.id))
 
-    return render_template("question.html", q=q, existing=existing)
+    study_mode = request.args.get("study") == "1"
+    return render_template("question.html", q=q, existing=existing, study_mode=study_mode)
 
 
 @app.route("/question/<int:qid>/challenge", methods=["POST"])
@@ -614,6 +637,60 @@ def vote_on_dispute(cid):
     return redirect(url_for("view_dispute", cid=cid))
 
 
+@app.route("/study", methods=["GET", "POST"])
+@login_required
+def study():
+    if request.method == "POST":
+        subjects = request.form.getlist("subjects")
+        topics = request.form.getlist("topics")
+        try:
+            diff_min = max(1, min(10, int(request.form.get("diff_min", 1))))
+            diff_max = max(1, min(10, int(request.form.get("diff_max", 10))))
+        except ValueError:
+            diff_min, diff_max = 1, 10
+        if diff_min > diff_max:
+            diff_min, diff_max = diff_max, diff_min
+        session["study_prefs"] = dict(subjects=subjects, topics=topics,
+                                      diff_min=diff_min, diff_max=diff_max)
+        return redirect(url_for("study_next"))
+    prefs = session.get("study_prefs", {})
+    return render_template("study.html", prefs=prefs)
+
+
+@app.route("/study/next")
+@login_required
+def study_next():
+    user = current_user()
+    prefs = session.get("study_prefs")
+    if not prefs:
+        return redirect(url_for("study"))
+
+    subjects = prefs.get("subjects") or SUBJECTS
+    topics = prefs.get("topics") or []
+    diff_min = prefs.get("diff_min", 1)
+    diff_max = prefs.get("diff_max", 10)
+
+    q = Question.query.filter(
+        Question.subject.in_(subjects),
+        Question.difficulty >= diff_min,
+        Question.difficulty <= diff_max,
+        Question.author_id != user.id,
+    )
+    if topics:
+        q = q.filter(Question.topic.in_(topics))
+
+    all_matching = q.all()
+    if not all_matching:
+        flash("No questions match your study filters — try widening them.", "warn")
+        return redirect(url_for("study"))
+
+    done_ids = {c.question_id for c in Completion.query.filter_by(user_id=user.id).all()}
+    undone = [x for x in all_matching if x.id not in done_ids]
+    pool = undone if undone else all_matching
+    next_q = random.choice(pool)
+    return redirect(url_for("view_question", qid=next_q.id, study=1))
+
+
 @app.route("/profile")
 @login_required
 def profile():
@@ -637,14 +714,20 @@ with app.app_context():
     insp = inspect(db.engine)
     if "question" in insp.get_table_names():
         cols = {c["name"] for c in insp.get_columns("question")}
-        if "topic" not in cols:
-            db.session.execute(text("ALTER TABLE question ADD COLUMN topic VARCHAR(80)"))
-            db.session.commit()
-        if "graph_url" not in cols:
-            db.session.execute(text("ALTER TABLE question ADD COLUMN graph_url VARCHAR(300)"))
-            db.session.commit()
-        if "answer_graph_url" not in cols:
-            db.session.execute(text("ALTER TABLE question ADD COLUMN answer_graph_url VARCHAR(300)"))
+        for col, ddl in [
+            ("topic",               "ALTER TABLE question ADD COLUMN topic VARCHAR(80)"),
+            ("graph_url",           "ALTER TABLE question ADD COLUMN graph_url VARCHAR(300)"),
+            ("answer_graph_url",    "ALTER TABLE question ADD COLUMN answer_graph_url VARCHAR(300)"),
+            ("marks",               "ALTER TABLE question ADD COLUMN marks INTEGER"),
+            ("marking_guidelines",  "ALTER TABLE question ADD COLUMN marking_guidelines TEXT"),
+        ]:
+            if col not in cols:
+                db.session.execute(text(ddl))
+                db.session.commit()
+    if "completion" in insp.get_table_names():
+        ccols = {c["name"] for c in insp.get_columns("completion")}
+        if "quality_rating" not in ccols:
+            db.session.execute(text("ALTER TABLE completion ADD COLUMN quality_rating INTEGER"))
             db.session.commit()
 
 

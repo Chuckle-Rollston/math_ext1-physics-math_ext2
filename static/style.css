@@ -339,6 +339,132 @@ hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 /* q-page layout */
 .q-page { max-width: 820px; }
 
+/* ── Study mode banner ──────────────────────────────────────────────────── */
+.study-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(90deg, #1a2035, #1d2a20);
+  border: 1px solid var(--ok); border-radius: var(--radius);
+  padding: 10px 16px; margin-bottom: 18px; gap: 12px;
+  font-weight: 600; color: var(--ok);
+}
+.study-banner-actions { display: flex; align-items: center; gap: 12px; }
+
+/* ── Single range slider (quality / difficulty) ─────────────────────────── */
+.slider-label {
+  font-size: 13px; color: var(--muted); margin-bottom: 8px;
+}
+.slider-val { color: var(--fg); font-weight: 600; }
+.single-range { display: flex; flex-direction: column; gap: 4px; }
+.single-range input[type=range] {
+  width: 100%; appearance: none; background: transparent; height: 24px; cursor: pointer;
+}
+.single-range input[type=range]::-webkit-slider-runnable-track {
+  height: 6px; background: var(--panel-2); border-radius: 3px; border: 1px solid var(--border);
+}
+.single-range input[type=range]::-webkit-slider-thumb {
+  appearance: none; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--bg);
+  margin-top: -7px; box-shadow: 0 0 0 2px var(--accent);
+}
+.single-range input[type=range]::-moz-range-track {
+  height: 6px; background: var(--panel-2); border-radius: 3px;
+}
+.single-range input[type=range]::-moz-range-thumb {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--bg); box-sizing: border-box;
+}
+.single-range input[type=range]:disabled { opacity: .35; cursor: not-allowed; }
+.range-tick-row {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: var(--muted); padding: 0 2px;
+}
+.slider-clear-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted); margin-top: 4px; cursor: pointer;
+}
+
+/* ── Dual range slider (study mode filter) ──────────────────────────────── */
+.dual-range-wrap { max-width: 480px; }
+.dual-range {
+  position: relative; height: 36px; margin-bottom: 4px;
+}
+.dual-range-track {
+  position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%);
+  height: 6px; background: var(--panel-2); border-radius: 3px; border: 1px solid var(--border);
+}
+.dual-range-fill {
+  position: absolute; height: 100%; background: var(--accent);
+  border-radius: 3px; pointer-events: none;
+}
+.dual-range-input {
+  position: absolute; top: 0; left: 0; width: 100%;
+  appearance: none; background: transparent;
+  pointer-events: none; height: 36px; margin: 0;
+}
+.dual-range-input::-webkit-slider-thumb {
+  appearance: none; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--bg);
+  cursor: pointer; pointer-events: all;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.dual-range-input::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); border: 3px solid var(--bg);
+  cursor: pointer; pointer-events: all; box-sizing: border-box;
+}
+.dual-range-readout {
+  font-size: 14px; color: var(--muted); margin-top: 6px;
+}
+.dual-range-readout b { color: var(--accent); }
+
+/* ── Study form ─────────────────────────────────────────────────────────── */
+.study-form { margin-top: 8px; }
+.study-section { margin-bottom: 28px; }
+.study-section h2 { margin: 0 0 12px; font-size: 17px; }
+
+.checkbox-grid {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.checkbox-grid.small .check-card { font-size: 13px; }
+
+.check-card {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--panel);
+  cursor: pointer; font-size: 14px; color: var(--muted);
+  transition: border-color 0.1s, color 0.1s;
+}
+.check-card input { display: none; }
+.check-card.checked { border-color: var(--accent); color: var(--fg); background: var(--panel-2); }
+.check-card:hover { border-color: var(--accent); }
+.check-label { font-weight: 500; }
+
+.subject-color-math_ext1 { color: var(--math_ext1); }
+.subject-color-math_ext2 { color: var(--math_ext2); }
+.subject-color-math_adv  { color: var(--math_adv); }
+.subject-color-physics   { color: var(--physics); }
+
+.topic-group { margin-bottom: 16px; }
+.topic-group-label {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; margin-bottom: 8px;
+}
+
+/* ── Marking guidelines ─────────────────────────────────────────────────── */
+.marking-guidelines {
+  margin-top: 16px; padding: 14px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-left: 4px solid var(--warn); border-radius: 8px;
+}
+.marking-guidelines h4 {
+  margin: 0 0 8px; font-size: 13px; color: var(--warn);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.marking-body { font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
+
+/* ── Completion rating tags ─────────────────────────────────────────────── */
+.completion-ratings { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+
 @media (max-width: 720px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: span 1; }
@@ -346,4 +472,5 @@ hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
   .earn-card-highlight { grid-column: span 1; }
   .verdict-row { flex-direction: column; }
   .vote-bar-label { width: 140px; }
+  .dual-range-wrap { max-width: 100%; }
 }

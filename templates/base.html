@@ -34,6 +34,7 @@
         <a href="{{ url_for('profile') }}" class="chip">
           {{ current_user.username }} · <b>{{ current_user.credits }}</b> cr
         </a>
+        <a href="{{ url_for('study') }}">Study</a>
         <a href="{{ url_for('challenges') }}">Challenges</a>
         <a href="{{ url_for('gain_credits') }}" class="btn-earn">Gain Credits</a>
         <a href="{{ url_for('logout') }}">Log out</a>

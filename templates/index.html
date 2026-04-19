@@ -59,6 +59,10 @@
         Perceived difficulty (1–10)
         <input type="number" name="difficulty" min="1" max="10" value="5" required>
       </label>
+      <label>
+        Marks (optional)
+        <input type="number" name="marks" min="1" max="20" placeholder="e.g. 3">
+      </label>
 
       <label class="span-2">
         Question (LaTeX)
@@ -79,6 +83,12 @@
         <div class="muted">Answer preview</div>
         <div id="a-preview" class="tex-preview">$$\text{type above}$$</div>
       </div>
+
+      <label class="span-2">
+        Marking guidelines (optional — supports LaTeX with $…$ or $$…$$)
+        <textarea name="marking_guidelines" rows="3"
+          placeholder="e.g. 1 mark for setting up the integral, 2 marks for correct antiderivative, 3 marks for correct answer"></textarea>
+      </label>
 
       <label class="span-2">
         Question graph — Desmos URL (optional)

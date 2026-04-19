@@ -2,13 +2,25 @@
 {% block title %}Question #{{ q.id }} · QBank{% endblock %}
 
 {% block content %}
+
+{% if study_mode %}
+<div class="study-banner">
+  <span>📚 Study Mode</span>
+  <div class="study-banner-actions">
+    <a href="{{ url_for('study_next') }}" class="btn small">Skip →</a>
+    <a href="{{ url_for('study') }}" class="muted" style="font-size:.85em">Change filters</a>
+  </div>
+</div>
+{% else %}
 <a href="{{ url_for('index', subject=q.subject) }}" class="back">← Back to {{ SUBJECT_LABELS[q.subject] }}</a>
+{% endif %}
 
 <div class="q-page">
   <div class="card-meta">
     <span class="tag subject-{{ q.subject }}">{{ SUBJECT_LABELS[q.subject] }}</span>
     {% if q.topic %}<span class="tag">{{ q.topic }}</span>{% endif %}
-    <span class="tag">Author-rated difficulty {{ q.difficulty }}/10</span>
+    <span class="tag">Difficulty {{ q.difficulty }}/10</span>
+    {% if q.marks %}<span class="tag">{{ q.marks }} mark{{ 's' if q.marks != 1 }}</span>{% endif %}
     <span class="tag">Completions: {{ q.completion_count }}</span>
     <span class="muted">by {{ q.author.username }}</span>
   </div>
@@ -26,21 +38,43 @@
   {% if existing %}
     <section class="panel">
       <h2>You completed this</h2>
-      <p>{% if existing.rated_difficulty %}You rated this <b>{{ existing.rated_difficulty }}/10</b> — nice work.{% else %}You didn't rate the difficulty this time.{% endif %}</p>
-      <details>
+      <div class="completion-ratings">
+        {% if existing.rated_difficulty %}
+          <span class="tag">Difficulty rated {{ existing.rated_difficulty }}/10</span>
+        {% endif %}
+        {% if existing.quality_rating %}
+          <span class="tag">Question quality {{ existing.quality_rating }}/10</span>
+        {% endif %}
+      </div>
+
+      <details {% if study_mode %}open{% endif %}>
         <summary>Show official answer</summary>
-        <div class="tex-preview big">$${{ q.answer_latex|safe }}$$</div>
+        <div class="tex-preview big" style="margin-top:10px">$${{ q.answer_latex|safe }}$$</div>
         {% if q.answer_graph_url %}
         <div class="graph-embed">
           <iframe src="{{ q.answer_graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
         </div>
         {% endif %}
+        {% if q.marking_guidelines %}
+        <div class="marking-guidelines">
+          <h4>Marking guidelines</h4>
+          <div class="marking-body">{{ q.marking_guidelines|safe }}</div>
+        </div>
+        {% endif %}
       </details>
+
       {% if existing.submitted_answer %}
       <details>
         <summary>Your submitted answer</summary>
         <div class="tex-preview big">$${{ existing.submitted_answer|safe }}$$</div>
       </details>
+      {% endif %}
+
+      {% if study_mode %}
+      <div style="margin-top:16px">
+        <a href="{{ url_for('study_next') }}" class="btn primary">Next question →</a>
+        <a href="{{ url_for('study') }}" class="btn" style="margin-left:8px">End session</a>
+      </div>
       {% endif %}
 
       <hr>
@@ -76,6 +110,12 @@
           <iframe src="{{ q.answer_graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
         </div>
         {% endif %}
+        {% if q.marking_guidelines %}
+        <div class="marking-guidelines">
+          <h4>Marking guidelines</h4>
+          <div class="marking-body">{{ q.marking_guidelines|safe }}</div>
+        </div>
+        {% endif %}
       </details>
     </section>
 
@@ -85,10 +125,41 @@
       <p class="muted">Rate the difficulty and earn <b>+1 credit</b> back.</p>
 
       <form method="post" class="form-grid">
-        <label>
-          Rate difficulty 1–10 <span class="credit-hint">(+1 credit)</span>
-          <input type="number" name="rated_difficulty" min="1" max="10" placeholder="optional">
-        </label>
+        {% if study_mode %}<input type="hidden" name="study" value="1">{% endif %}
+
+        <!-- Difficulty rating -->
+        <div class="span-2">
+          <div class="slider-label">
+            Difficulty rating <span class="credit-hint">(+1 credit)</span>
+            — <span id="diff-val" class="slider-val">not rated</span>
+          </div>
+          <div class="single-range">
+            <input type="range" id="diff-slider" name="rated_difficulty"
+              min="1" max="10" step="1"
+              oninput="document.getElementById('diff-val').textContent = this.value + '/10'"
+              style="--val:50%">
+            <div class="range-tick-row"><span>1</span><span>5</span><span>10</span></div>
+          </div>
+          <label class="slider-clear-row">
+            <input type="checkbox" id="diff-clear" onchange="clearSlider('diff-slider','diff-val','not rated')">
+            Don't rate difficulty (costs 2 credits instead of 1)
+          </label>
+        </div>
+
+        <!-- Question quality rating -->
+        <div class="span-2">
+          <div class="slider-label">
+            How good was this question? — <span id="qual-val" class="slider-val">5/10</span>
+            <span class="muted" style="font-size:.85em">(wording, length, composition)</span>
+          </div>
+          <div class="single-range">
+            <input type="range" id="qual-slider" name="quality_rating"
+              min="1" max="10" step="1" value="5"
+              oninput="document.getElementById('qual-val').textContent = this.value + '/10'">
+            <div class="range-tick-row"><span>1 poor</span><span>5</span><span>10 excellent</span></div>
+          </div>
+        </div>
+
         <label>
           Self-check: was your answer correct?
           <select name="was_correct">
@@ -96,6 +167,7 @@
             <option value="no">No</option>
           </select>
         </label>
+        <div></div><!-- spacer -->
 
         <label class="span-2">
           Your answer (LaTeX)
@@ -140,6 +212,32 @@
     if (window.MathJax && MathJax.typesetPromise) {
       MathJax.typesetPromise([dst]).catch(()=>{});
     }
+  }
+
+  // Difficulty slider starts cleared (no value submitted means no rating)
+  const diffSlider = document.getElementById('diff-slider');
+  const diffClear  = document.getElementById('diff-clear');
+  if (diffSlider) {
+    diffSlider.disabled = true;
+    diffSlider.value = 5;
+    diffClear.checked = true;
+    diffClear.addEventListener('change', () => {
+      diffSlider.disabled = diffClear.checked;
+      if (diffClear.checked) {
+        document.getElementById('diff-val').textContent = 'not rated';
+        diffSlider.removeAttribute('name');
+      } else {
+        document.getElementById('diff-val').textContent = diffSlider.value + '/10';
+        diffSlider.setAttribute('name', 'rated_difficulty');
+      }
+    });
+    // On load: slider is disabled, name removed
+    diffSlider.removeAttribute('name');
+  }
+
+  function clearSlider(sliderId, valId, resetText) {
+    const sl = document.getElementById(sliderId);
+    // toggled by checkbox handler above
   }
 </script>
 {% endblock %}
