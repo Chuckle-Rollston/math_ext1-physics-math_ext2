@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Community Disputes · QBank{% endblock %}
+{% block content %}
+<div class="toolbar">
+  <h1>Open disputes <span class="muted">({{ disputes|length }})</span></h1>
+  <a href="{{ url_for('gain_credits') }}" class="muted" style="font-size:.9em">← How earning works</a>
+</div>
+<p class="muted" style="margin-bottom:20px">
+  Vote on how each dispute should be resolved. Show your working — if the community agrees with you, you earn credits.
+  Needs <b>10 votes with 9 agreeing</b> to auto-resolve.
+</p>
+
+{% if not disputes %}
+  <p class="empty">No open disputes to vote on right now. Check back later!</p>
+{% endif %}
+
+<div class="dispute-list">
+  {% for ch, cr_value in disputes %}
+  <a class="dispute-card subject-accent-{{ ch.question.subject }}" href="{{ url_for('view_dispute', cid=ch.id) }}">
+    <div class="card-meta">
+      <span class="tag subject-{{ ch.question.subject }}">{{ SUBJECT_LABELS[ch.question.subject] }}</span>
+      {% if ch.question.topic %}<span class="tag">{{ ch.question.topic }}</span>{% endif %}
+      <span class="tag tag-earn">+{{ cr_value }} cr</span>
+      <span class="muted" style="margin-left:auto">
+        {{ ch.community_votes|length }}/10 votes
+        · by {{ ch.challenger.username }}
+        · {{ ch.created_at.strftime('%d %b %Y') }}
+      </span>
+    </div>
+    <div class="split" style="gap:12px;margin-top:10px">
+      <div>
+        <div class="muted" style="font-size:.8em;margin-bottom:4px">Official answer</div>
+        <div class="tex-preview">$${{ ch.question.answer_latex|safe }}$$</div>
+      </div>
+      <div>
+        <div class="muted" style="font-size:.8em;margin-bottom:4px">Proposed answer</div>
+        <div class="tex-preview">$${{ ch.proposed_answer_latex|safe }}$$</div>
+      </div>
+    </div>
+    {% if ch.note %}
+    <p class="muted" style="font-size:.85em;margin-top:8px"><b>Challenger's note:</b> {{ ch.note }}</p>
+    {% endif %}
+    <div class="dispute-foot">Vote & see full question →</div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

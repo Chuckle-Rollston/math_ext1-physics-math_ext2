@@ -1,5 +1,6 @@
 import os
 import secrets
+from collections import Counter
 from functools import wraps
 from datetime import datetime
 
@@ -146,6 +147,78 @@ class Challenge(db.Model):
 
     question = db.relationship("Question", backref="challenges")
     challenger = db.relationship("User", foreign_keys=[challenger_id])
+
+
+class CommunityVote(db.Model):
+    """Community member votes on how a challenge should be resolved."""
+    id = db.Column(db.Integer, primary_key=True)
+    challenge_id = db.Column(db.Integer, db.ForeignKey("challenge.id"), nullable=False)
+    voter_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    vote = db.Column(db.String(20), nullable=False)  # original_wrong | both_correct | rejected
+    working_out = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("challenge_id", "voter_id", name="uix_challenge_voter"),)
+
+    challenge = db.relationship("Challenge", backref="community_votes")
+    voter = db.relationship("User", foreign_keys=[voter_id])
+
+
+VOTE_THRESHOLD = 10   # total votes needed to resolve
+AGREE_THRESHOLD = 9   # votes for the same outcome to reach consensus
+
+
+def _dispute_credit_value(challenge):
+    """Credits awarded for voting: 3 normally, +1 per week of inactivity, max 5."""
+    now = datetime.utcnow()
+    last = (CommunityVote.query
+            .filter_by(challenge_id=challenge.id)
+            .order_by(CommunityVote.created_at.desc())
+            .first())
+    last_activity = last.created_at if last else challenge.created_at
+    days = (now - last_activity).days
+    if days >= 14:
+        return 5
+    if days >= 7:
+        return 4
+    return 3
+
+
+def _check_community_resolution(challenge):
+    """Resolve challenge if community consensus reached. Does not commit."""
+    if challenge.status != "open":
+        return
+    votes = CommunityVote.query.filter_by(challenge_id=challenge.id).all()
+    if len(votes) < VOTE_THRESHOLD:
+        return
+    counts = Counter(v.vote for v in votes)
+    top_outcome, top_count = counts.most_common(1)[0]
+    if top_count < AGREE_THRESHOLD:
+        return
+
+    credit_value = _dispute_credit_value(challenge)
+    q = db.session.get(Question, challenge.question_id)
+    author = db.session.get(User, q.author_id)
+    challenger = db.session.get(User, challenge.challenger_id)
+
+    if top_outcome == "original_wrong":
+        if author and author.credits >= 1:
+            author.credits -= 1
+        if challenger:
+            challenger.credits += 1
+        q.answer_latex = challenge.proposed_answer_latex
+    elif top_outcome == "both_correct":
+        if challenger:
+            challenger.credits += 1
+
+    for v in votes:
+        if v.vote == top_outcome:
+            voter = db.session.get(User, v.voter_id)
+            if voter:
+                voter.credits += credit_value
+
+    challenge.status = top_outcome
+    challenge.resolved_at = datetime.utcnow()
 
 
 # ---------- auth helpers ----------
@@ -436,6 +509,109 @@ def resolve_challenge(cid):
 @app.route("/credits")
 def credits_info():
     return render_template("credits.html")
+
+
+@app.route("/gain-credits")
+def gain_credits():
+    open_count = 0
+    user = current_user()
+    if user:
+        voted_ids = [v.challenge_id for v in
+                     CommunityVote.query.filter_by(voter_id=user.id).all()]
+        q = (Challenge.query
+             .join(Question, Challenge.question_id == Question.id)
+             .filter(Challenge.status == "open",
+                     Question.author_id != user.id,
+                     Challenge.challenger_id != user.id))
+        if voted_ids:
+            q = q.filter(Challenge.id.notin_(voted_ids))
+        open_count = q.count()
+    return render_template("gain_credits.html", open_count=open_count)
+
+
+@app.route("/community-disputes")
+@login_required
+def community_disputes():
+    user = current_user()
+    voted_ids = [v.challenge_id for v in
+                 CommunityVote.query.filter_by(voter_id=user.id).all()]
+    q = (Challenge.query
+         .join(Question, Challenge.question_id == Question.id)
+         .filter(Challenge.status == "open",
+                 Question.author_id != user.id,
+                 Challenge.challenger_id != user.id)
+         .order_by(Challenge.created_at.asc()))
+    if voted_ids:
+        q = q.filter(Challenge.id.notin_(voted_ids))
+    disputes = [(ch, _dispute_credit_value(ch)) for ch in q.all()]
+    return render_template("community_disputes.html", disputes=disputes)
+
+
+@app.route("/disputes/<int:cid>")
+@login_required
+def view_dispute(cid):
+    user = current_user()
+    ch = db.session.get(Challenge, cid)
+    if not ch:
+        abort(404)
+    q = db.session.get(Question, ch.question_id)
+    my_vote = CommunityVote.query.filter_by(challenge_id=cid, voter_id=user.id).first()
+    all_votes = CommunityVote.query.filter_by(challenge_id=cid).all()
+    vote_counts = dict(Counter(v.vote for v in all_votes))
+    credit_value = _dispute_credit_value(ch)
+    can_vote = (ch.status == "open" and not my_vote
+                and q.author_id != user.id and ch.challenger_id != user.id)
+    return render_template("view_dispute.html", ch=ch, q=q, my_vote=my_vote,
+                           all_votes=all_votes, vote_counts=vote_counts,
+                           credit_value=credit_value, can_vote=can_vote,
+                           total_votes=len(all_votes))
+
+
+@app.route("/disputes/<int:cid>/vote", methods=["POST"])
+@login_required
+def vote_on_dispute(cid):
+    user = current_user()
+    ch = db.session.get(Challenge, cid)
+    if not ch:
+        abort(404)
+    q = db.session.get(Question, ch.question_id)
+
+    if ch.status != "open":
+        flash("This dispute is already resolved.", "error")
+        return redirect(url_for("view_dispute", cid=cid))
+    if q.author_id == user.id:
+        flash("You can't vote on a dispute about your own question.", "error")
+        return redirect(url_for("community_disputes"))
+    if ch.challenger_id == user.id:
+        flash("You can't vote on your own challenge.", "error")
+        return redirect(url_for("community_disputes"))
+    if CommunityVote.query.filter_by(challenge_id=cid, voter_id=user.id).first():
+        flash("You've already voted on this dispute.", "error")
+        return redirect(url_for("view_dispute", cid=cid))
+
+    vote = request.form.get("vote", "")
+    working_out = request.form.get("working_out", "").strip()
+
+    if vote not in ("original_wrong", "both_correct", "rejected"):
+        flash("Select a verdict.", "error")
+        return redirect(url_for("view_dispute", cid=cid))
+    if not working_out:
+        flash("You must provide working out.", "error")
+        return redirect(url_for("view_dispute", cid=cid))
+
+    cv = CommunityVote(challenge_id=cid, voter_id=user.id,
+                       vote=vote, working_out=working_out)
+    db.session.add(cv)
+    db.session.commit()
+
+    _check_community_resolution(ch)
+    db.session.commit()
+
+    if ch.status != "open":
+        flash("Your vote resolved the dispute! Credits awarded to the winning voters.", "ok")
+    else:
+        flash(f"Vote submitted. {VOTE_THRESHOLD - CommunityVote.query.filter_by(challenge_id=cid).count()} more vote(s) needed.", "ok")
+    return redirect(url_for("view_dispute", cid=cid))
 
 
 @app.route("/profile")

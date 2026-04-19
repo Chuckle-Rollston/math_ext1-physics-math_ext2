@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Gain Credits · QBank{% endblock %}
+{% block content %}
+<div class="prose">
+  <h1>Gain Credits</h1>
+  <p class="muted">Credits let you practise other people's questions. Here's every way to earn them.</p>
+
+  <div class="earn-grid">
+
+    <div class="earn-card">
+      <div class="earn-amount">+5</div>
+      <h3>Add a question</h3>
+      <p>Write a new HSC question with a worked answer. You earn credits the moment it's posted.</p>
+      {% if current_user %}
+        <a href="{{ url_for('index') }}" class="btn primary small">Add a question</a>
+      {% endif %}
+    </div>
+
+    <div class="earn-card">
+      <div class="earn-amount">+1</div>
+      <h3>Rate difficulty</h3>
+      <p>When you complete a question, rate its difficulty out of 10. The rating saves you 1 credit on that attempt.</p>
+    </div>
+
+    <div class="earn-card earn-card-highlight">
+      <div class="earn-amount">+3 to +5</div>
+      <h3>Resolve answer disputes</h3>
+      <p>
+        When someone challenges an official answer, the whole community can vote on who's right.
+        Supply your working out, and if you're on the winning side you earn credits.
+      </p>
+      <ul class="earn-rules">
+        <li><b>+3 cr</b> — dispute is active (voted on in the last week)</li>
+        <li><b>+4 cr</b> — no votes for over a week</li>
+        <li><b>+5 cr</b> — no votes for over two weeks</li>
+      </ul>
+      <p class="muted" style="font-size:.9em">
+        A dispute resolves when <b>10 people have voted</b> and <b>9 of them agree</b>.
+        You must show working out — no credit for guessing.
+      </p>
+      {% if current_user %}
+        <a href="{{ url_for('community_disputes') }}" class="btn primary small">
+          View open disputes
+          {% if open_count %}<span class="badge">{{ open_count }}</span>{% endif %}
+        </a>
+      {% else %}
+        <a href="{{ url_for('register') }}" class="btn primary small">Sign up to vote</a>
+      {% endif %}
+    </div>
+
+    <div class="earn-card">
+      <div class="earn-amount">+6</div>
+      <h3>Your question gets completions</h3>
+      <p>Every time your question reaches another 10 completions (10, 20, 30 …) you automatically receive 6 credits.</p>
+    </div>
+
+    <div class="earn-card">
+      <div class="earn-amount">+1</div>
+      <h3>Successful challenge</h3>
+      <p>If you challenge an official answer and the author (or community) finds you're right, you get 1 credit — 2 if the original is fully wrong.</p>
+    </div>
+
+    <div class="earn-card">
+      <div class="earn-amount">+10</div>
+      <h3>Sign up</h3>
+      <p>Every new account starts with 10 credits, enough to complete a handful of questions straight away.</p>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

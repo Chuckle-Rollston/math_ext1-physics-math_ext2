@@ -245,8 +245,105 @@ hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
 .status-both_correct { border-color: var(--accent); color: var(--accent); }
 .status-rejected { color: var(--muted); }
 
+/* gain-credits nav button */
+.btn-earn {
+  padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  border: 1px solid var(--ok); color: var(--ok); background: transparent;
+}
+.btn-earn:hover { background: var(--ok); color: #052015; text-decoration: none; }
+
+/* tag-earn — green credit tag */
+.tag-earn { border-color: var(--ok); color: var(--ok); }
+
+/* notification badge */
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--ok); color: #052015; border-radius: 999px;
+  font-size: 11px; font-weight: 700; padding: 0 6px; min-width: 18px;
+  margin-left: 5px; vertical-align: middle;
+}
+
+/* earn-credits page */
+.earn-grid {
+  display: grid; gap: 14px; margin-top: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.earn-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.earn-card-highlight {
+  border-color: var(--ok); grid-column: span 2;
+}
+.earn-amount {
+  font-size: 32px; font-weight: 700; color: var(--ok); line-height: 1;
+}
+.earn-card h3 { margin: 0; font-size: 16px; }
+.earn-card p { margin: 0; font-size: 14px; color: var(--muted); }
+.earn-rules {
+  margin: 6px 0; padding-left: 20px; font-size: 13px; color: var(--muted);
+}
+.earn-rules li { margin: 2px 0; }
+.earn-rules b { color: var(--ok); }
+
+/* community-disputes list */
+.dispute-list { display: flex; flex-direction: column; gap: 14px; }
+.dispute-card {
+  display: block;
+  background: var(--panel); border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: var(--radius); padding: 16px;
+  color: var(--fg); transition: transform 0.08s ease;
+}
+.dispute-card:hover { text-decoration: none; transform: translateY(-1px); }
+.dispute-card.subject-accent-math_ext1 { border-left-color: var(--math_ext1); }
+.dispute-card.subject-accent-math_ext2 { border-left-color: var(--math_ext2); }
+.dispute-card.subject-accent-math_adv  { border-left-color: var(--math_adv); }
+.dispute-card.subject-accent-physics   { border-left-color: var(--physics); }
+.dispute-foot {
+  margin-top: 12px; font-size: 13px; color: var(--accent); font-weight: 600;
+}
+
+/* verdict radio row */
+.verdict-row {
+  display: flex; gap: 10px; flex-wrap: wrap;
+}
+.verdict-option {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; cursor: pointer; flex: 1;
+  font-size: 14px; color: var(--fg);
+}
+.verdict-option:has(input:checked) { border-color: var(--accent); background: var(--bg); }
+.verdict-option input { accent-color: var(--accent); }
+
+/* vote bar chart */
+.vote-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.vote-bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.vote-bar-label { width: 200px; color: var(--muted); flex-shrink: 0; }
+.vote-bar-track {
+  flex: 1; height: 12px; background: var(--panel-2);
+  border-radius: 999px; overflow: hidden; border: 1px solid var(--border);
+}
+.vote-bar-fill { height: 100%; background: var(--accent); border-radius: 999px; min-width: 4px; transition: width 0.3s ease; }
+.vote-bar-winner { background: var(--ok); }
+.vote-bar-count { width: 24px; text-align: right; color: var(--muted); }
+
+/* community vote working-out items */
+.community-vote-item {
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px; margin-top: 10px; background: var(--panel-2);
+}
+
+/* q-page layout */
+.q-page { max-width: 820px; }
+
 @media (max-width: 720px) {
   .form-grid { grid-template-columns: 1fr; }
   .form-grid .span-2 { grid-column: span 1; }
   .split { grid-template-columns: 1fr; }
+  .earn-card-highlight { grid-column: span 1; }
+  .verdict-row { flex-direction: column; }
+  .vote-bar-label { width: 140px; }
 }

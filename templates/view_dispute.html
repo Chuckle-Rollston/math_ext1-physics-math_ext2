@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Dispute #{{ ch.id }} · QBank{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('community_disputes') }}" class="back">← Back to open disputes</a>
+
+<div class="q-page">
+
+  <!-- Question -->
+  <section class="panel">
+    <div class="card-meta">
+      <span class="tag subject-{{ ch.question.subject }}">{{ SUBJECT_LABELS[ch.question.subject] }}</span>
+      {% if ch.question.topic %}<span class="tag">{{ ch.question.topic }}</span>{% endif %}
+      <span class="tag">Dispute #{{ ch.id }}</span>
+      {% if ch.status == "open" %}
+        <span class="tag tag-earn">+{{ credit_value }} cr for correct vote</span>
+      {% else %}
+        <span class="status status-{{ ch.status }}">{{ ch.status.replace('_',' ') }}</span>
+      {% endif %}
+    </div>
+    <h2>Question</h2>
+    <div class="tex-preview big">$${{ ch.question.latex|safe }}$$</div>
+    {% if ch.question.graph_url %}
+    <div class="graph-embed">
+      <iframe src="{{ ch.question.graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- Both answers side by side -->
+  <section class="panel">
+    <div class="split">
+      <div>
+        <h3>Official answer</h3>
+        <div class="tex-preview big">$${{ ch.question.answer_latex|safe }}$$</div>
+        {% if ch.question.answer_graph_url %}
+        <div class="graph-embed" style="margin-top:10px">
+          <iframe src="{{ ch.question.answer_graph_url }}?embed" class="graph-embed-frame" allowfullscreen></iframe>
+        </div>
+        {% endif %}
+      </div>
+      <div>
+        <h3>Proposed answer <span class="muted" style="font-weight:400;font-size:.85em">by {{ ch.challenger.username }}</span></h3>
+        <div class="tex-preview big">$${{ ch.proposed_answer_latex|safe }}$$</div>
+        {% if ch.note %}
+        <p class="muted" style="margin-top:10px"><b>Challenger's note:</b> {{ ch.note }}</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <!-- Vote form -->
+  {% if can_vote %}
+  <section class="panel">
+    <h2>Cast your vote</h2>
+    <p class="muted">
+      Study both answers carefully, then write your working out below.
+      You earn <b>+{{ credit_value }} credits</b> if your vote is on the winning side.
+      Needs <b>{{ 10 - total_votes }} more vote{{ 's' if (10 - total_votes) != 1 }}</b> to auto-resolve ({{ total_votes }}/10 so far).
+    </p>
+
+    <form method="post" action="{{ url_for('vote_on_dispute', cid=ch.id) }}" class="form-grid">
+      <div class="span-2 verdict-row">
+        <label class="verdict-option">
+          <input type="radio" name="vote" value="rejected" required>
+          <span class="verdict-label">Original answer is correct</span>
+        </label>
+        <label class="verdict-option">
+          <input type="radio" name="vote" value="both_correct">
+          <span class="verdict-label">Both are acceptable</span>
+        </label>
+        <label class="verdict-option">
+          <input type="radio" name="vote" value="original_wrong">
+          <span class="verdict-label">Challenger's answer is correct</span>
+        </label>
+      </div>
+
+      <label class="span-2">
+        Your working out (LaTeX) — required
+        <textarea id="wo-latex" name="working_out" rows="5" required
+          placeholder="Show your reasoning…"
+          oninput="renderPreview('wo-latex','wo-preview')"></textarea>
+      </label>
+      <div class="span-2 preview-box">
+        <div class="muted">Preview</div>
+        <div id="wo-preview" class="tex-preview">$$\text{type above}$$</div>
+      </div>
+
+      <div class="span-2 modal-actions">
+        <button type="submit" class="btn primary">Submit vote (+{{ credit_value }} cr if correct)</button>
+      </div>
+    </form>
+  </section>
+
+  {% elif my_vote %}
+  <section class="panel">
+    <h2>Your vote</h2>
+    <p>
+      You voted: <b>
+        {% if my_vote.vote == "rejected" %}Original answer is correct
+        {% elif my_vote.vote == "both_correct" %}Both are acceptable
+        {% else %}Challenger's answer is correct{% endif %}
+      </b>
+    </p>
+    <div class="tex-preview big">$${{ my_vote.working_out|safe }}$$</div>
+  </section>
+
+  {% elif ch.status == "open" %}
+  <section class="panel">
+    <p class="muted">You are the question author or challenger — you cannot vote on this dispute.</p>
+  </section>
+  {% endif %}
+
+  <!-- Community votes (count only before voting; full breakdown after) -->
+  <section class="panel">
+    <h2>Community votes
+      <span class="muted" style="font-weight:400;font-size:.8em">({{ total_votes }}/10)</span>
+    </h2>
+
+    {% if total_votes == 0 %}
+      <p class="muted">No votes yet. Be the first!</p>
+
+    {% elif not my_vote and can_vote %}
+      <p class="muted">Vote first to see the breakdown.</p>
+
+    {% else %}
+      <!-- Show breakdown -->
+      {% set labels = {"rejected": "Original correct", "both_correct": "Both acceptable", "original_wrong": "Challenger correct"} %}
+      <div class="vote-bars">
+        {% for outcome, label in labels.items() %}
+        {% set n = vote_counts.get(outcome, 0) %}
+        <div class="vote-bar-row">
+          <span class="vote-bar-label">{{ label }}</span>
+          <div class="vote-bar-track">
+            <div class="vote-bar-fill {% if ch.status == outcome %}vote-bar-winner{% endif %}"
+                 style="width:{{ (n / total_votes * 100)|round|int if total_votes else 0 }}%"></div>
+          </div>
+          <span class="vote-bar-count">{{ n }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Individual working outs -->
+      {% if my_vote or ch.status != "open" %}
+      <div style="margin-top:20px">
+        <h3>Working outs</h3>
+        {% for v in all_votes %}
+        <div class="community-vote-item">
+          <div class="card-meta">
+            <span class="muted">{{ v.voter.username }}</span>
+            <span class="tag {% if ch.status == v.vote %}tag-earn{% endif %}">
+              {% if v.vote == "rejected" %}Original correct
+              {% elif v.vote == "both_correct" %}Both acceptable
+              {% else %}Challenger correct{% endif %}
+            </span>
+          </div>
+          <div class="tex-preview">$${{ v.working_out|safe }}$$</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function renderPreview(srcId, dstId){
+    const src = document.getElementById(srcId).value || '\\text{type above}';
+    const dst = document.getElementById(dstId);
+    dst.innerHTML = '$$' + src + '$$';
+    if (window.MathJax && MathJax.typesetPromise) {
+      MathJax.typesetPromise([dst]).catch(()=>{});
+    }
+  }
+</script>
+{% endblock %}

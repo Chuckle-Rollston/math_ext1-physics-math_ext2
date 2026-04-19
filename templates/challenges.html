@@ -27,6 +27,13 @@
           {% if ch.note %}<p class="muted"><b>Note:</b> {{ ch.note }}</p>{% endif %}
         </div>
       </div>
+      {% set vcount = ch.community_votes|length %}
+      {% if vcount > 0 %}
+      <p class="muted" style="margin:8px 0">
+        <a href="{{ url_for('view_dispute', cid=ch.id) }}">{{ vcount }} community vote{{ 's' if vcount != 1 }}</a>
+        · needs {{ 10 - vcount }} more to auto-resolve
+      </p>
+      {% endif %}
       <form method="post" action="{{ url_for('resolve_challenge', cid=ch.id) }}" class="resolve-row">
         <button name="outcome" value="original_wrong" class="btn warn">Original wrong (−1 cr to you, +1 to challenger)</button>
         <button name="outcome" value="both_correct" class="btn">Both correct (+1 cr to challenger)</button>
@@ -50,7 +57,11 @@
           <td><a href="{{ url_for('view_question', qid=ch.question.id) }}">#{{ ch.question.id }}</a>
               <span class="tag subject-{{ ch.question.subject }}">{{ SUBJECT_LABELS[ch.question.subject] }}</span></td>
           <td class="tex-cell">$${{ ch.proposed_answer_latex|safe }}$$</td>
-          <td><span class="status status-{{ ch.status }}">{{ ch.status.replace('_',' ') }}</span></td>
+          <td>
+            <span class="status status-{{ ch.status }}">{{ ch.status.replace('_',' ') }}</span>
+            {% set vc = ch.community_votes|length %}
+            {% if vc %}<a href="{{ url_for('view_dispute', cid=ch.id) }}" class="muted" style="font-size:.85em"> · {{ vc }} vote{{ 's' if vc != 1 }}</a>{% endif %}
+          </td>
           <td class="muted">{{ ch.created_at.strftime('%Y-%m-%d') }}</td>
         </tr>
       {% endfor %}
