@@ -9,7 +9,7 @@ Options (edit the CONFIG block below):
   SUBJECT   — one of math_ext1 | math_ext2 | math_adv | physics  (or "all")
   TOPIC     — a specific topic string, or None to cycle all topics
   COUNT     — total questions to generate (split across topics)
-  MODEL     — Grok model to use (default: grok-3-mini)
+  MODEL     — grok-4-1-fast-non-reasoning
 """
 import os, sys, json, time
 
@@ -24,7 +24,7 @@ from app import app, db, User, Question, SUBJECTS, SUBJECT_LABELS, TOPICS
 SUBJECT   = "all"          # "math_ext1" | "math_ext2" | "math_adv" | "physics" | "all"
 TOPIC     = None           # e.g. "Calculus" — or None to cover all topics
 COUNT     = 5              # questions PER TOPIC (or total if TOPIC is set)
-MODEL     = "grok-3-mini"
+MODEL     = "grok-4-1-fast-non-reasoning
 SEED_USER = "qbank"
 SEED_PASS = "qbank1234"
 # ─────────────────────────────────────────────────────────────────────────────
@@ -37,9 +37,14 @@ client = OpenAI(api_key=api_key, base_url="https://api.x.ai/v1")
 
 SYSTEM_PROMPT = """\
 You are an expert HSC (NSW, Australia) mathematics and physics examiner.
-Generate exam-style questions in valid LaTeX. All mathematical expressions
-must be valid LaTeX. Do NOT wrap the latex fields in $$ or $ delimiters —
-the calling code adds those. Output ONLY a JSON array, no commentary."""
+Generate exam-style questions in valid LaTeX. Follow these LaTeX rules strictly:
+
+CRITICAL FORMATTING RULES:
+1. Every word of English prose MUST be wrapped in \\text{} — e.g. \\text{Find the value of } x.
+2. Never write bare English words outside \\text{} — they render as squashed italic symbols.
+3. Do NOT wrap the latex fields in $$ or $ delimiters — the calling code adds those.
+4. Use \\\\ for line breaks between steps in answer_latex.
+5. Output ONLY a JSON array, no commentary, no markdown fences."""
 
 def build_user_prompt(subject: str, topic: str, n: int) -> str:
     return f"""\
@@ -58,6 +63,8 @@ Rules:
 - Questions must be multi-step and require working, not just recall.
 - Vary difficulty across the batch (easy, medium, hard).
 - All LaTeX must compile without errors.
+- EVERY English word must be inside \\text{{}} — e.g. \\text{{A particle moves at }} v = 3t^2.
+- Never leave bare English words outside \\text{{}} tags.
 - Use \\text{{}} for prose inside math environments.
 - Output ONLY the JSON array, nothing else."""
 
