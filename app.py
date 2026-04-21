@@ -12,6 +12,7 @@ from flask import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, inspect, text
+from sqlalchemy.orm import joinedload, selectinload
 from werkzeug.security import generate_password_hash, check_password_hash
 
 SUBJECTS = ["math_ext1", "math_ext2", "math_adv", "physics"]
@@ -113,8 +114,8 @@ class User(db.Model):
 
 class Question(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    subject = db.Column(db.String(20), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    subject = db.Column(db.String(20), nullable=False, index=True)
     topic = db.Column(db.String(80), nullable=True)
     latex = db.Column(db.Text, nullable=False)
     answer_latex = db.Column(db.Text, nullable=False)
@@ -126,13 +127,13 @@ class Question(db.Model):
     image_filename = db.Column(db.String(100), nullable=True)
     completion_count = db.Column(db.Integer, default=0, nullable=False)
     credits_awarded_buckets = db.Column(db.Integer, default=0, nullable=False)  # per-10 bonus payouts
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
 class Completion(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    question_id = db.Column(db.Integer, db.ForeignKey("question.id"), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    question_id = db.Column(db.Integer, db.ForeignKey("question.id"), nullable=False, index=True)
     rated_difficulty = db.Column(db.Integer, nullable=True)  # 1-10 if rated
     quality_rating = db.Column(db.Integer, nullable=True)   # 1-10 question quality
     credits_charged = db.Column(db.Integer, nullable=False)
@@ -147,11 +148,11 @@ class Completion(db.Model):
 class Challenge(db.Model):
     """User disputes the official answer for a question."""
     id = db.Column(db.Integer, primary_key=True)
-    question_id = db.Column(db.Integer, db.ForeignKey("question.id"), nullable=False)
-    challenger_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey("question.id"), nullable=False, index=True)
+    challenger_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     proposed_answer_latex = db.Column(db.Text, nullable=False)
     note = db.Column(db.Text, nullable=True)
-    status = db.Column(db.String(20), default="open", nullable=False)
+    status = db.Column(db.String(20), default="open", nullable=False, index=True)
     # open | original_wrong | both_correct | rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     resolved_at = db.Column(db.DateTime, nullable=True)
@@ -163,8 +164,8 @@ class Challenge(db.Model):
 class CommunityVote(db.Model):
     """Community member votes on how a challenge should be resolved."""
     id = db.Column(db.Integer, primary_key=True)
-    challenge_id = db.Column(db.Integer, db.ForeignKey("challenge.id"), nullable=False)
-    voter_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    challenge_id = db.Column(db.Integer, db.ForeignKey("challenge.id"), nullable=False, index=True)
+    voter_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
     vote = db.Column(db.String(20), nullable=False)  # original_wrong | both_correct | rejected
     working_out = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -196,18 +197,24 @@ def _dispute_credit_value(challenge):
 
 
 def _check_community_resolution(challenge):
-    """Resolve challenge if community consensus reached. Does not commit."""
-    if challenge.status != "open":
-        return
-    votes = CommunityVote.query.filter_by(challenge_id=challenge.id).all()
-    if len(votes) < VOTE_THRESHOLD:
-        return
+    """Resolve challenge if community consensus reached. Returns the vote total.
+    Does not commit."""
+    votes = (CommunityVote.query
+             .filter_by(challenge_id=challenge.id)
+             .order_by(CommunityVote.created_at.asc())
+             .all())
+    total = len(votes)
+    if challenge.status != "open" or total < VOTE_THRESHOLD:
+        return total
     counts = Counter(v.vote for v in votes)
     top_outcome, top_count = counts.most_common(1)[0]
     if top_count < AGREE_THRESHOLD:
-        return
+        return total
 
-    credit_value = _dispute_credit_value(challenge)
+    latest = max((v.created_at for v in votes), default=challenge.created_at)
+    days = (datetime.utcnow() - latest).days
+    credit_value = 5 if days >= 14 else 4 if days >= 7 else 3
+
     q = db.session.get(Question, challenge.question_id)
     author = db.session.get(User, q.author_id)
     challenger = db.session.get(User, challenge.challenger_id)
@@ -222,14 +229,16 @@ def _check_community_resolution(challenge):
         if challenger:
             challenger.credits += 1
 
-    for v in votes:
-        if v.vote == top_outcome:
-            voter = db.session.get(User, v.voter_id)
-            if voter:
-                voter.credits += credit_value
+    # Batch load winning voters in a single query instead of N individual SELECTs.
+    winner_ids = [v.voter_id for v in votes if v.vote == top_outcome]
+    if winner_ids:
+        winners = User.query.filter(User.id.in_(winner_ids)).all()
+        for voter in winners:
+            voter.credits += credit_value
 
     challenge.status = top_outcome
     challenge.resolved_at = datetime.utcnow()
+    return total
 
 
 # ---------- auth helpers ----------
@@ -273,24 +282,30 @@ def inject_globals():
 @app.route("/")
 def index():
     subject = request.args.get("subject", "all")
-    q = Question.query
+    q = Question.query.options(joinedload(Question.author))
     if subject in SUBJECTS:
         q = q.filter_by(subject=subject)
     questions = q.order_by(Question.created_at.desc()).limit(200).all()
 
-    # For logged-in users, mark which are already completed
+    qids = [x.id for x in questions]
+
+    # For logged-in users, mark which of the visible questions are already completed.
+    # Scoping the IN(qids) query avoids dragging the user's full completion history.
     done_ids = set()
     user = current_user()
-    if user:
-        rows = Completion.query.with_entities(Completion.question_id).filter_by(user_id=user.id).all()
+    if user and qids:
+        rows = (db.session.query(Completion.question_id)
+                .filter(Completion.user_id == user.id,
+                        Completion.question_id.in_(qids))
+                .all())
         done_ids = {r[0] for r in rows}
 
-    # Community average difficulty per question (single query)
-    qids = [q.id for q in questions]
-    avg_rows = (db.session.query(Completion.question_id, func.avg(Completion.rated_difficulty))
-                .filter(Completion.question_id.in_(qids), Completion.rated_difficulty.isnot(None))
-                .group_by(Completion.question_id).all())
-    avg_difficulties = {qid: round(avg, 1) for qid, avg in avg_rows if avg is not None}
+    avg_difficulties = {}
+    if qids:
+        avg_rows = (db.session.query(Completion.question_id, func.avg(Completion.rated_difficulty))
+                    .filter(Completion.question_id.in_(qids), Completion.rated_difficulty.isnot(None))
+                    .group_by(Completion.question_id).all())
+        avg_difficulties = {qid: round(avg, 1) for qid, avg in avg_rows if avg is not None}
 
     return render_template("index.html",
                            questions=questions,
@@ -555,6 +570,9 @@ def challenges():
     user = current_user()
     # Open challenges on questions I authored
     incoming = (Challenge.query
+                .options(joinedload(Challenge.question),
+                         joinedload(Challenge.challenger),
+                         selectinload(Challenge.community_votes))
                 .join(Question, Challenge.question_id == Question.id)
                 .filter(Question.author_id == user.id,
                         Challenge.status == "open")
@@ -562,6 +580,8 @@ def challenges():
                 .all())
     # My own submitted challenges
     outgoing = (Challenge.query
+                .options(joinedload(Challenge.question),
+                         selectinload(Challenge.community_votes))
                 .filter(Challenge.challenger_id == user.id)
                 .order_by(Challenge.created_at.desc())
                 .all())
@@ -617,16 +637,15 @@ def gain_credits():
     open_count = 0
     user = current_user()
     if user:
-        voted_ids = [v.challenge_id for v in
-                     CommunityVote.query.filter_by(voter_id=user.id).all()]
-        q = (Challenge.query
-             .join(Question, Challenge.question_id == Question.id)
-             .filter(Challenge.status == "open",
-                     Question.author_id != user.id,
-                     Challenge.challenger_id != user.id))
-        if voted_ids:
-            q = q.filter(Challenge.id.notin_(voted_ids))
-        open_count = q.count()
+        voted_subq = (db.session.query(CommunityVote.challenge_id)
+                      .filter(CommunityVote.voter_id == user.id))
+        open_count = (db.session.query(func.count(Challenge.id))
+                      .join(Question, Challenge.question_id == Question.id)
+                      .filter(Challenge.status == "open",
+                              Question.author_id != user.id,
+                              Challenge.challenger_id != user.id,
+                              Challenge.id.notin_(voted_subq))
+                      .scalar()) or 0
     return render_template("gain_credits.html", open_count=open_count)
 
 
@@ -634,17 +653,29 @@ def gain_credits():
 @login_required
 def community_disputes():
     user = current_user()
-    voted_ids = [v.challenge_id for v in
-                 CommunityVote.query.filter_by(voter_id=user.id).all()]
-    q = (Challenge.query
-         .join(Question, Challenge.question_id == Question.id)
-         .filter(Challenge.status == "open",
-                 Question.author_id != user.id,
-                 Challenge.challenger_id != user.id)
-         .order_by(Challenge.created_at.asc()))
-    if voted_ids:
-        q = q.filter(Challenge.id.notin_(voted_ids))
-    disputes = [(ch, _dispute_credit_value(ch)) for ch in q.all()]
+    voted_subq = (db.session.query(CommunityVote.challenge_id)
+                  .filter(CommunityVote.voter_id == user.id))
+    challenges = (Challenge.query
+                  .options(joinedload(Challenge.question),
+                           joinedload(Challenge.challenger),
+                           selectinload(Challenge.community_votes))
+                  .join(Question, Challenge.question_id == Question.id)
+                  .filter(Challenge.status == "open",
+                          Question.author_id != user.id,
+                          Challenge.challenger_id != user.id,
+                          Challenge.id.notin_(voted_subq))
+                  .order_by(Challenge.created_at.asc())
+                  .all())
+
+    # Batch compute credit values using the already-loaded community_votes
+    # (avoids N extra ORDER BY ... LIMIT 1 queries inside _dispute_credit_value).
+    now = datetime.utcnow()
+    disputes = []
+    for ch in challenges:
+        latest = max((v.created_at for v in ch.community_votes), default=ch.created_at)
+        days = (now - latest).days
+        cr_value = 5 if days >= 14 else 4 if days >= 7 else 3
+        disputes.append((ch, cr_value))
     return render_template("community_disputes.html", disputes=disputes)
 
 
@@ -656,10 +687,16 @@ def view_dispute(cid):
     if not ch:
         abort(404)
     q = db.session.get(Question, ch.question_id)
-    my_vote = CommunityVote.query.filter_by(challenge_id=cid, voter_id=user.id).first()
-    all_votes = CommunityVote.query.filter_by(challenge_id=cid).all()
+    all_votes = (CommunityVote.query
+                 .filter_by(challenge_id=cid)
+                 .order_by(CommunityVote.created_at.asc())
+                 .all())
+    my_vote = next((v for v in all_votes if v.voter_id == user.id), None)
     vote_counts = dict(Counter(v.vote for v in all_votes))
-    credit_value = _dispute_credit_value(ch)
+    # Reuse already-loaded votes to avoid a second "latest vote" query.
+    latest = max((v.created_at for v in all_votes), default=ch.created_at)
+    days = (datetime.utcnow() - latest).days
+    credit_value = 5 if days >= 14 else 4 if days >= 7 else 3
     can_vote = (ch.status == "open" and not my_vote
                 and q.author_id != user.id and ch.challenger_id != user.id)
     return render_template("view_dispute.html", ch=ch, q=q, my_vote=my_vote,
@@ -703,15 +740,15 @@ def vote_on_dispute(cid):
     cv = CommunityVote(challenge_id=cid, voter_id=user.id,
                        vote=vote, working_out=working_out)
     db.session.add(cv)
-    db.session.commit()
+    db.session.flush()  # make vote visible to the resolution check without a full commit
 
-    _check_community_resolution(ch)
+    vote_total = _check_community_resolution(ch)
     db.session.commit()
 
     if ch.status != "open":
         flash("Your vote resolved the dispute! Credits awarded to the winning voters.", "ok")
     else:
-        flash(f"Vote submitted. {VOTE_THRESHOLD - CommunityVote.query.filter_by(challenge_id=cid).count()} more vote(s) needed.", "ok")
+        flash(f"Vote submitted. {VOTE_THRESHOLD - vote_total} more vote(s) needed.", "ok")
     return redirect(url_for("view_dispute", cid=cid))
 
 
@@ -758,40 +795,46 @@ def study_next():
     qual_min = prefs.get("qual_min", 1)
     qual_max = prefs.get("qual_max", 10)
 
-    q = Question.query.filter(
-        Question.subject.in_(subjects),
-        Question.difficulty >= diff_min,
-        Question.difficulty <= diff_max,
-        Question.author_id != user.id,
-    )
+    # Base filter: only question ids, so we never materialize full rows until the end.
+    base_q = (db.session.query(Question.id)
+              .filter(Question.subject.in_(subjects),
+                      Question.difficulty >= diff_min,
+                      Question.difficulty <= diff_max,
+                      Question.author_id != user.id))
     if topics:
-        q = q.filter(Question.topic.in_(topics))
+        base_q = base_q.filter(Question.topic.in_(topics))
 
-    all_matching = q.all()
-    if not all_matching:
+    matching_ids = [r[0] for r in base_q.all()]
+    if not matching_ids:
         flash("No questions match your study filters — try widening them.", "warn")
         return redirect(url_for("study"))
 
-    # Filter by average quality rating; questions with no ratings always pass
+    # Quality filter: only fetch averages for the candidate set, not the whole table.
     if qual_min != 1 or qual_max != 10:
         qual_avgs = dict(
             db.session.query(Completion.question_id, func.avg(Completion.quality_rating))
-            .filter(Completion.quality_rating.isnot(None))
+            .filter(Completion.question_id.in_(matching_ids),
+                    Completion.quality_rating.isnot(None))
             .group_by(Completion.question_id)
             .all()
         )
         quality_filtered = [
-            x for x in all_matching
-            if x.id not in qual_avgs or qual_min <= qual_avgs[x.id] <= qual_max
+            qid for qid in matching_ids
+            if qid not in qual_avgs or qual_min <= qual_avgs[qid] <= qual_max
         ]
         if quality_filtered:
-            all_matching = quality_filtered
+            matching_ids = quality_filtered
 
-    done_ids = {c.question_id for c in Completion.query.filter_by(user_id=user.id).all()}
-    undone = [x for x in all_matching if x.id not in done_ids]
-    pool = undone if undone else all_matching
-    next_q = random.choice(pool)
-    return redirect(url_for("view_question", qid=next_q.id, study=1))
+    # Done set: only the ones inside our candidate pool, not the user's whole history.
+    done_ids = {r[0] for r in
+                db.session.query(Completion.question_id)
+                .filter(Completion.user_id == user.id,
+                        Completion.question_id.in_(matching_ids))
+                .all()}
+    undone = [qid for qid in matching_ids if qid not in done_ids]
+    pool = undone if undone else matching_ids
+    next_qid = random.choice(pool)
+    return redirect(url_for("view_question", qid=next_qid, study=1))
 
 
 @app.route("/profile")
@@ -833,6 +876,26 @@ with app.app_context():
         if "quality_rating" not in ccols:
             db.session.execute(text("ALTER TABLE completion ADD COLUMN quality_rating INTEGER"))
             db.session.commit()
+
+    # Indexes for hot lookup paths. `create_all` adds indexes only for newly
+    # created tables, so older app.db files need explicit CREATE INDEX.
+    for ddl in [
+        "CREATE INDEX IF NOT EXISTS ix_question_author_id ON question (author_id)",
+        "CREATE INDEX IF NOT EXISTS ix_question_subject ON question (subject)",
+        "CREATE INDEX IF NOT EXISTS ix_question_created_at ON question (created_at)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_user_id ON completion (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_question_id ON completion (question_id)",
+        "CREATE INDEX IF NOT EXISTS ix_challenge_question_id ON challenge (question_id)",
+        "CREATE INDEX IF NOT EXISTS ix_challenge_challenger_id ON challenge (challenger_id)",
+        "CREATE INDEX IF NOT EXISTS ix_challenge_status ON challenge (status)",
+        "CREATE INDEX IF NOT EXISTS ix_community_vote_challenge_id ON community_vote (challenge_id)",
+        "CREATE INDEX IF NOT EXISTS ix_community_vote_voter_id ON community_vote (voter_id)",
+    ]:
+        try:
+            db.session.execute(text(ddl))
+        except Exception:
+            db.session.rollback()
+    db.session.commit()
 
 
 @app.route("/question/<int:qid>/edit", methods=["POST"])
